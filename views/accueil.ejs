@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="../js/accueil.js"></script>
+    <script src="../js/partial.js"></script>
+    <script src="../js/utils.js"></script>
+    <title>Accueil</title>
+</head>
+<body>
+    <%- include('partials/navbar') %>
+    <%- include('partials/login') %>
+    <%- include('partials/message') %>
+    
+    <main>
+        <!-- Message de bienvenue -->
+        <div class="welcome">
+            <h1>Bienvenue sur notre site</h1>
+            <p>phrase un peu gneu gneu mais stylée</p>
+        </div>
+
+        <div class="index-btn-grid">
+            <button class="index-btn">
+               <div class="index-btn-title">Lancez Vous</div>
+               <br>
+                <div class="index-btn-p">Accèdez à Noctua-Beta version Web.</div>
+            </button>
+            <button class="index-btn">
+                <div class="index-btn-title">Noctua sur mobile</div>
+                <br>
+                <div class="index-btn-p">Noctua-Beta depuis votre smartphone.</div>
+            </button>
+        </div>
+    </main>
+</body>
+</html>
