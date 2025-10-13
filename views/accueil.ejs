@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="../js/partial.js"></script>
+    <script src="../js/utils.js"></script>
+    <title>Accueil</title>
+</head>
+<body class="page-accueil">
+    <%- include('partials/login') %>
+    <%- include('partials/message') %>
+    <%- include('partials/api') %>
+    
+    <main class="hero-section">
+        <div class="hero-logo-container">
+            <img src="../image/svgviewer-output.svg" alt="Noctua Logo" class="hero-logo">
+        </div>
+
+        <div class="hero-content">
+
+            <h1 class="hero-title">
+                Vos démarches simplifiées
+                <span class="gradient-text">Noctua AI</span>
+            </h1>
+
+            <p class="hero-description">
+                Explorez des réponses personnalisées, une recherche approfondie pour faciliter vos démarches universitaires et bien plus encore.
+            </p>
+
+            <div class="hero-actions">
+                <button class="btn-primary" id="begin">
+                    <span>Commencer Gratuitement</span>
+                    <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <button class="btn-secondary" id="btn-stats">
+                    <span>Voir les Statistiques</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Features Grid -->
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon blue">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3 class="feature-title">Démarches facilitées</h3>
+                <p class="feature-description">
+                    Simplifiez vos processus universitaires avec des solutions IA adaptées
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon purple">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3 class="feature-title">Réponses Personnalisées</h3>
+                <p class="feature-description">
+                    Obtenez des réponses adéquates à vos besoins spécifiques et à votre contexte unique
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon cyan">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3 class="feature-title">Temps Réel</h3>
+                <p class="feature-description">
+                    Communiquez instantanément avec une IA réactive et performante
+                </p>
+            </div>
+        </div>
+
+        <!-- Animation Background -->
+        <div class="floating-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+        </div>
+    </main>
+
+    <section id="stats-section" class="stats-section">
+        <h2 class="stats-title">Noctua en chiffres</h2>
+        <p class="stats-subtitle">Ce que notre IA a accompli</p>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-number" id="stat-conversations">—</span>
+                <span class="stat-label">Conversations</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="stat-questions">—</span>
+                <span class="stat-label">Questions posées</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="stat-users">—</span>
+                <span class="stat-label">Utilisateurs inscrits</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="stat-satisfaction">—</span>
+                <span class="stat-label">Taux de satisfaction</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="charts-section">
+        <h2 class="stats-title">Activité récente</h2>
+        <p class="stats-subtitle">Évolution au fil du temps</p>
+        <div class="charts-grid">
+            <div class="chart-card">
+                <p class="chart-title">Conversations / jour (30j)</p>
+                <canvas id="chart-conversations"></canvas>
+            </div>
+            <div class="chart-card">
+                <p class="chart-title">Questions / jour (30j)</p>
+                <canvas id="chart-messages"></canvas>
+            </div>
+            <div class="chart-card">
+                <p class="chart-title">Inscriptions cumulées (3 mois)</p>
+                <canvas id="chart-users"></canvas>
+            </div>
+            <div class="chart-card">
+                <p class="chart-title">Satisfaction par semaine (5 sem.)</p>
+                <canvas id="chart-satisfaction"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        document.getElementById('btn-stats').addEventListener('click', () => {
+            document.getElementById('stats-section').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                document.getElementById('stat-conversations').textContent = data.conversations.toLocaleString('fr-FR');
+                document.getElementById('stat-questions').textContent = data.questions.toLocaleString('fr-FR');
+                document.getElementById('stat-users').textContent = data.users.toLocaleString('fr-FR');
+                document.getElementById('stat-satisfaction').textContent = data.satisfaction !== null ? data.satisfaction + '%' : 'N/A';
+            } catch {}
+        }
+
+        function makeChart(id, labels, values, label, color) {
+            const ctx = document.getElementById(id).getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+            gradient.addColorStop(0, color + '55');
+            gradient.addColorStop(1, color + '00');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label,
+                        data: values,
+                        borderColor: color,
+                        backgroundColor: gradient,
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#8899bb', maxTicksLimit: 6 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { ticks: { color: '#8899bb' }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        async function loadCharts() {
+            try {
+                const res = await fetch('/api/stats/charts');
+                const data = await res.json();
+
+                const fmtDay = d => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+                const fmtWeek = d => 'Sem. ' + new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+
+                makeChart('chart-conversations',
+                    data.conversations.map(r => fmtDay(r.day)),
+                    data.conversations.map(r => Number(r.count)),
+                    'Conversations', '#7A73D1');
+
+                makeChart('chart-messages',
+                    data.messages.map(r => fmtDay(r.day)),
+                    data.messages.map(r => Number(r.count)),
+                    'Questions', '#4FC3F7');
+
+                let cumul = 0;
+                makeChart('chart-users',
+                    data.users.map(r => fmtDay(r.day)),
+                    data.users.map(r => { cumul += Number(r.count); return cumul; }),
+                    'Utilisateurs', '#81C784');
+
+                makeChart('chart-satisfaction',
+                    data.satisfaction.map(r => fmtWeek(r.week)),
+                    data.satisfaction.map(r => {
+                        const up = Number(r.upvotes), down = Number(r.downvotes);
+                        return up + down > 0 ? Math.round(up / (up + down) * 100) : null;
+                    }),
+                    'Satisfaction %', '#FFB74D');
+            } catch {}
+        }
+
+        loadStats();
+        loadCharts();
+    </script>
+</body>
+</html>

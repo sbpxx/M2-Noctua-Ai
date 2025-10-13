@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  ollama:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ollama
+    container_name: noctua-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - noctua-network
+
+networks:
+  noctua-network:
+    driver: bridge
+
+volumes:
+  ollama-data:
+    driver: local

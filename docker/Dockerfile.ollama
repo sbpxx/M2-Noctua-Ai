@@ -1,0 +1,14 @@
+FROM ollama/ollama:latest
+
+# Expose Ollama API port
+EXPOSE 11434
+
+# Create directory for models
+RUN mkdir -p /root/.ollama/models
+
+# Copy startup script
+COPY scripts/start-ollama.sh /start-ollama.sh
+RUN chmod +x /start-ollama.sh
+
+# Start Ollama and pull llama3.2 model
+ENTRYPOINT ["/bin/bash", "/start-ollama.sh"]

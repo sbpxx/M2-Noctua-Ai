@@ -1,0 +1,21 @@
+{
+  "name": "noctua",
+  "version": "1.0.0",
+  "description": "Projet tutoré M2",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.2.3",
+    "ejs": "^3.1.10",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.0",
+    "socket.io": "^4.8.3"
+  }
+}

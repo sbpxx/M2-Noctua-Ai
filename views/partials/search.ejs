@@ -1,0 +1,35 @@
+<div class="modal-search" id="searchModal">
+    <div class="modal-overlay"></div>
+    <div class="search-modal-content">
+        <button class="modal-close" onclick="closeSearchModal()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+
+        <div class="search-layout">
+            <div class="search-header">
+                <div class="search-icon">
+                    <i class="ri-chat-search-line"></i>
+                </div>
+                <h2>Rechercher une conversation</h2>
+            </div>
+
+            <div class="search-input-container">
+                <i class="ri-search-line search-input-icon"></i>
+                <input type="text"
+                       class="search-input"
+                       id="search-conversations-input"
+                       placeholder="Rechercher par titre..."
+                       autocomplete="off">
+                <button class="search-clear-btn" id="search-clear-btn" style="display: none;">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+
+            <div class="search-results" id="search-results">
+                <p class="search-empty-state">Commencez à taper pour rechercher vos conversations</p>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,267 @@
+<div class="modal-settings" id="settingsModal">
+    <div class="modal-overlay"></div>
+    <div class="settings-modal-content">
+        <button class="modal-close" onclick="document.getElementById('settingsModal').style.display='none'">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+
+        <div class="settings-layout">
+            <!-- Menu gauche -->
+            <div class="settings-sidebar">
+                <div class="settings-header">
+                    <div class="settings-icon">
+                        <i class="ri-settings-3-fill"></i>
+                    </div>
+                    <h2>Paramètres</h2>
+                </div>
+
+                <nav class="settings-menu">
+                    <a href="#" class="settings-menu-item active" data-section="general">
+                        <i class="ri-settings-4-line"></i>
+                        <span>Général</span>
+                    </a>
+                    <a href="#" class="settings-menu-item" data-section="profile">
+                        <i class="ri-user-settings-line"></i>
+                        <span>Profil</span>
+                    </a>
+                    <a href="#" class="settings-menu-item" data-section="data">
+                        <i class="ri-database-2-line"></i>
+                        <span>Données</span>
+                    </a>
+                    <a href="#" class="settings-menu-item" data-section="about">
+                        <i class="ri-information-line"></i>
+                        <span>À propos</span>
+                    </a>
+                    <a href="#" class="settings-menu-item admin-only" data-section="admin" id="settings-admin-menu" style="display: none;">
+                        <i class="ri-admin-line"></i>
+                        <span>Administration</span>
+                    </a>
+                </nav>
+            </div>
+
+            <!-- droite -->
+            <div class="settings-content">
+                <!-- Général -->
+                <div class="settings-section active" id="section-general">
+                    <h3 class="settings-section-title">Paramètres Généraux</h3>
+                    <p class="settings-section-subtitle">Configurez vos préférences générales</p>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Thème</label>
+                        <select class="settings-select">
+                            <option value="dark">Sombre</option>
+                            <option value="light">Clair</option>
+                            <option value="auto">Automatique</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Langue</label>
+                        <select class="settings-select">
+                            <option value="fr">Français</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-toggle">
+                            <input type="checkbox" checked>
+                            <span class="settings-toggle-slider"></span>
+                            <span class="settings-toggle-label">Notifications activées</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Profil -->
+                <div class="settings-section" id="section-profile">
+                    <h3 class="settings-section-title">Profil Utilisateur</h3>
+                    <p class="settings-section-subtitle">Gérez vos informations personnelles</p>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Nom d'utilisateur</label>
+                        <input type="text" class="settings-input" id="profile-username" placeholder="Votre nom" readonly>
+                        <button class="settings-btn-secondary" id="change-username-btn" type="button" style="margin-top: 8px;">Modifier le nom</button>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Email</label>
+                        <input type="email" class="settings-input" id="profile-email" placeholder="votre.email@example.com">
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Mot de passe</label>
+                        <button class="settings-btn-secondary" id="change-password-btn" type="button">Modifier le mot de passe</button>
+                    </div>
+
+                    <!-- Champs de mot de passe cachés par défaut -->
+                    <div id="password-fields" style="display: none;">
+                        <div class="settings-group">
+                            <label class="settings-label">Ancien mot de passe</label>
+                            <input type="password" class="settings-input" id="old-password" placeholder="Entrez votre ancien mot de passe">
+                        </div>
+
+                        <div class="settings-group">
+                            <label class="settings-label">Nouveau mot de passe</label>
+                            <input type="password" class="settings-input" id="new-password" placeholder="Entrez votre nouveau mot de passe">
+                        </div>
+
+                        <div class="settings-group">
+                            <label class="settings-label">Confirmer votre mot de passe</label>
+                            <input type="password" class="settings-input" id="confirm-password" placeholder="Confirmez votre nouveau mot de passe">
+                        </div>
+
+                        <div id="password-error" style="color: #ff4444; font-size: 14px; margin-top: -10px; margin-bottom: 15px; display: none;"></div>
+
+                        <button class="settings-btn-primary" id="confirm-password-btn" type="button">
+                            <span>Confirmer</span>
+                            <i class="ri-check-line"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Données -->
+                <div class="settings-section" id="section-data">
+                    <h3 class="settings-section-title">Gestion des Données</h3>
+                    <p class="settings-section-subtitle">Contrôlez vos données et votre historique</p>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Historique des conversations</label>
+                        <p class="settings-description">Supprimez l'historique de toutes vos conversations</p>
+                        <button class="settings-btn-danger" id="delete-history-btn">
+                            <i class="ri-delete-bin-line"></i>
+                            <span>Supprimer l'historique</span>
+                        </button>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Exporter les données</label>
+                        <p class="settings-description">Téléchargez une copie de vos données</p>
+                        <button class="settings-btn-secondary" id="download-data-btn">
+                            <i class="ri-download-line"></i>
+                            <span>Télécharger mes données</span>
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- À propos -->
+                <div class="settings-section" id="section-about">
+                    <h3 class="settings-section-title">À propos de Noctua</h3>
+                    <p class="settings-section-subtitle">Informations sur l'application</p>
+
+                    <div class="about-info">
+                        <div class="about-logo">
+                            <div class="about-icon">N</div>
+                            <h4>Noctua AI</h4>
+                        </div>
+
+                        <div class="about-details">
+                            <div class="about-item">
+                                <span class="about-label">Version</span>
+                                <span class="about-value">0.0</span>
+                            </div>
+                            <div class="about-item">
+                                <span class="about-label">Type</span>
+                                <span class="about-value">IA Universitaire</span>
+                            </div>
+                            <div class="about-item">
+                                <span class="about-label">Licence</span>
+                                <span class="about-value">NULL</span>
+                            </div>
+                        </div>
+
+                        <div class="about-links">
+                            <a href="#" class="about-link">
+                                <i class="ri-shield-check-line"></i>
+                                <span>Confidentialité</span>
+                            </a>
+                            <a href="#" class="about-link">
+                                <i class="ri-article-line"></i>
+                                <span>Conditions d'utilisation</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Administration (visible uniquement pour les admins) -->
+                <div class="settings-section" id="section-admin">
+                    <h3 class="settings-section-title">Administration</h3>
+                    <p class="settings-section-subtitle">Gestion du système et des services</p>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Serveur Mistral LLM</label>
+                        <p class="settings-description">Contrôlez le serveur d'inférence Mistral</p>
+                        <div class="admin-server-controls">
+                            <div class="server-status" id="mistral-status">
+                                <span class="status-indicator offline"></span>
+                                <span class="status-text">Statut: Inconnu</span>
+                            </div>
+                            <div class="server-buttons">
+                                <button class="settings-btn-primary" id="start-mistral-btn" type="button">
+                                    <i class="ri-play-fill"></i>
+                                    <span>Démarrer</span>
+                                </button>
+                                <button class="settings-btn-danger" id="stop-mistral-btn" type="button">
+                                    <i class="ri-stop-fill"></i>
+                                    <span>Arrêter</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Gestion des utilisateurs</label>
+                        <p class="settings-description">Voir et gérer les utilisateurs du système</p>
+                        <button class="settings-btn-secondary" id="manage-users-btn" type="button">
+                            <i class="ri-user-search-line"></i>
+                            <span>Gérer les utilisateurs</span>
+                        </button>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Logs système</label>
+                        <p class="settings-description">Consultez les journaux d'activité</p>
+                        <button class="settings-btn-secondary" id="view-logs-btn" type="button">
+                            <i class="ri-file-list-3-line"></i>
+                            <span>Voir les logs</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal modification nom d'utilisateur -->
+<div class="modal-rename" id="usernameModal" style="display: none;">
+    <div class="modal-overlay" onclick="closeUsernameModal()"></div>
+    <div class="rename-modal-content">
+        <h3><i class="ri-user-line"></i> Modifier le nom</h3>
+        <input type="text" id="username-modal-input" placeholder="Nouveau nom..." autocomplete="off" />
+        <div class="rename-actions">
+            <button class="rename-cancel-btn" onclick="closeUsernameModal()">Annuler</button>
+            <button class="rename-confirm-btn" id="username-confirm-btn">Valider</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation suppression historique -->
+<div class="confirm-modal" id="confirmDeleteHistoryModal">
+    <div class="confirm-modal-overlay"></div>
+    <div class="confirm-modal-content">
+        <div class="confirm-modal-icon danger">
+            <i class="ri-delete-bin-line"></i>
+        </div>
+        <h3>Supprimer l'historique ?</h3>
+        <p>Cette action supprimera <strong>toutes vos conversations</strong> et leurs messages. Cette action est irréversible.</p>
+        <div class="confirm-modal-buttons">
+            <button class="confirm-btn-cancel" id="cancel-delete-history">Annuler</button>
+            <button class="confirm-btn-danger" id="confirm-delete-history">
+                <i class="ri-delete-bin-line"></i>
+                Supprimer
+            </button>
+        </div>
+    </div>
+</div>

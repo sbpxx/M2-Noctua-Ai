@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../css/style.css?v=<%= Date.now() %>">
+<link
+    href="https://cdn.jsdelivr.net/npm/remixicon@4.7.0/fonts/remixicon.css"
+    rel="stylesheet"
+/>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="../js/utils.js?v=<%= Date.now() %>"></script>
+    <script src="../js/begin.js?v=<%= Date.now() %>"></script>
+    <script src="../js/partial.js?v=<%= Date.now() %>"></script>
+    <title>Chat</title>
+</head>
+
+<body>
+    <%- include('partials/login') %>
+    <%- include('partials/message') %>
+    <%- include('partials/settings') %>
+    <%- include('partials/search') %>
+    <%- include('partials/archive') %>
+    <%- include('partials/rename') %>
+    <%- include('partials/users-management') %>
+    <%- include('partials/logs') %>
+    <%- include('partials/api') %>
+    <%- include('partials/sidebar') %>
+
+  <main class="begin-main">
+    <div class="begin-content">
+      <div class="begin-icon-wrapper">
+        <div class="begin-icon">
+          <img src="../image/svgviewer-output.svg" alt="Noctua Logo" class="begin-logo">
+        </div>
+      </div>
+      <h1>Bienvenue sur <span class="gradient-text-begin">Noctua</span></h1>
+      <p>Commencez une conversation avec notre IA universitaire</p>
+      <textarea id="user-input" class="begin-input" placeholder="Posez votre question ou commencez une discussion..."></textarea>
+      <button id="start-chat-btn" class="begin-btn">
+        <span>Démarrer la Conversation</span>
+        <svg class="begin-btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+  </main>
+    
+</body>
+
+</html>

@@ -1,0 +1,23 @@
+<div class="modal-archive" id="archiveModal">
+    <div class="modal-overlay" onclick="closeArchiveModal()"></div>
+    <div class="archive-modal-content">
+        <button class="modal-close" onclick="closeArchiveModal()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+
+        <div class="archive-layout">
+            <div class="archive-header">
+                <div class="archive-icon">
+                    <i class="ri-archive-line"></i>
+                </div>
+                <h2>Conversations archivées</h2>
+            </div>
+
+            <div id="archive-results" class="archive-results">
+                <p class="archive-empty-state">Aucune conversation archivée.</p>
+            </div>
+        </div>
+    </div>
+</div>
