@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Sélectionner les éléments de navigation
     const accueilNav = document.getElementById('accueil');
-    const commencerNav = document.getElementById('convertir');
-    const explorerNav = document.getElementById('explorer');
+    const chat = document.getElementById('chat');
+    
 
     // Ajouter des écouteurs d'événements pour les éléments de navigation
     if (accueilNav) {
@@ -21,17 +21,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    if (commencerNav) {
-        commencerNav.addEventListener('click', function() {
-            window.location.href = '/convertir'; // Rediriger vers la page "Commencer"
+    if (chat) {
+        chat.addEventListener('click', function() {
+            window.location.href = 'chat'; // Rediriger vers la page "Chat"
         });
     }
 
-    if (explorerNav) {
-        explorerNav.addEventListener('click', function() {
-            window.location.href = '/explorer'; // Rediriger vers la page "Explorer"
-        });
-    }
+
 
 
     //Si il fait un click peut importe ou sur on verifier le jeton

@@ -18,13 +18,11 @@ app.get('/', function(req, res) {
     res.render('accueil'); // Utiliser le template EJS pour la page d'accueil
 });
 
-app.get('/explorer', function(req, res) {  
-    res.render('explorer'); // Utiliser le template EJS pour la page "Explorer"
+app.get('/chat', function(req, res) {  
+    res.render('chat'); // Utiliser le template EJS pour la page "cCat"
 });
 
-app.get('/convertir', function(req, res) {  
-    res.render('import'); // Utiliser le template EJS pour la page "Commencer"
-});
+
 
 app.get('/images', async (req, res) => {
     try {
