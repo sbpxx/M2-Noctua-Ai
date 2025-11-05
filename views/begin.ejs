@@ -9,7 +9,7 @@
     rel="stylesheet"
 />
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
-    <script src="../js/chat.js"></script>
+    <script src="../js/begin.js"></script>
     <script src="../js/partial.js"></script>
     <script src="../js/utils.js"></script>
     <title>Chat</title>
@@ -20,18 +20,16 @@
     <%- include('partials/message') %>
     <%- include('partials/sidebar') %>
 
-    <main class="chat-main">
-        <div id="main-chat" class="main-chat">
-            <div id="chat-container" class="chat-container">
-                <!-- emplacement des bulles de message -->
-            </div>
-            <div class="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Tapez votre message..." />
-                <button id="send-btn">Envoyer</button>
-            </div>
-        </div>
-    </main>
-
+  <main class="begin-main">
+    <div class="begin-content">
+      <h1>Bienvenue sur Noctua-Beta</h1>
+      <p>Commencez votre aventure avec notre IA dès maintenant.</p>
+      <input type="text" id="user-input" class="begin-input" placeholder="Posez votre question..." />
+      <button id="start-chat-btn" class="begin-btn">Commencer un Chat</button>
+    </div>
+    
+  </main>
+    
 </body>
 
 </html>

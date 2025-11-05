@@ -22,31 +22,10 @@ app.get('/chat', function(req, res) {
     res.render('chat'); // Utiliser le template EJS pour la page "cCat"
 });
 
-
-
-app.get('/images', async (req, res) => {
-    try {
-        const client = await pool.connect();
-        const result = await client.query('SELECT path, idimage FROM image');
-        res.json(result.rows);
-        client.release(); // Libérer le client
-    } catch (err) {
-        console.error('Erreur lors de la récupération des images:', err.stack);
-        res.status(500).send('Erreur lors de la récupération des images');
-    }
+app.get('/begin', function(req, res) {  
+    res.render('begin'); // Utiliser le template EJS pour la page "Start Chat"
 });
 
-app.get('/patrons', async (req, res) => {
-    try {
-        const client = await pool.connect();
-        const result = await client.query('SELECT idpatron ,nom ,description ,idimage , datecreation ,nbfil ,path  FROM patron'); 
-        res.json(result.rows); 
-        client.release(); 
-    } catch (err) {
-        console.error('Erreur lors de la récupération des patrons:', err.stack);
-        res.status(500).send('Erreur lors de la récupération des patrons');
-    }
-});
 
 // Ajouter un utilisateur à la BDD
 app.post('/register', async (req, res) => {
