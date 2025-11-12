@@ -253,18 +253,23 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function () {
     const sidebar = document.getElementById('sidebar');
     const collapseBtn = document.getElementById('btn-collapse');
+    const logoDiv = document.querySelector('.pro-sidebar-logo div');
+
+    function toggleSidebar() {
+        sidebar.classList.toggle('collapsed');
+        sidebar.classList.add('transitioning');
+        setTimeout(() => {
+            sidebar.classList.remove('transitioning');
+        }, 300);
+    }
+
     if (sidebar && collapseBtn) {
-        collapseBtn.addEventListener('click', function () {
-            sidebar.classList.toggle('collapsed');
-            // Trigger reflow for main content
-            const mainChat = document.querySelector('.main-chat');
-            const beginMain = document.querySelector('.begin-main');
+        collapseBtn.addEventListener('click', toggleSidebar);
+    }
+    if (logoDiv) {
+        logoDiv.addEventListener('click', function() {
             if (sidebar.classList.contains('collapsed')) {
-                if (mainChat) mainChat.style.marginLeft = '60px';
-                if (beginMain) beginMain.style.marginLeft = '60px';
-            } else {
-                if (mainChat) mainChat.style.marginLeft = '180px';
-                if (beginMain) beginMain.style.marginLeft = '180px';
+                toggleSidebar();
             }
         });
     }
