@@ -1,32 +1,121 @@
 <div class="modal-login" id="loginModal">
-    <div class="modalW">
-        <h2 style="margin-bottom:25px;">Connexion</h2>
-        <input type="text" id="email" class="username" placeholder="Nom d'utilisateur">
-        <input type="password" id="password" class="password" placeholder="Mot de passe">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <button class="modal-close" onclick="document.getElementById('loginModal').style.display='none'">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
 
-        <div class="options">
-            <label class="remember-me">
-                <input type="checkbox" class="checkbox"> <div>Se rappeler de moi </div>
-            </label>
-            <a href="#" class="forgot-password">Mot de passe oublié ?</a>
+        <div class="modal-header">
+            <div class="modal-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                    <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <h2 class="modal-title">Connexion</h2>
+            <p class="modal-subtitle">Connectez-vous pour accèder à vos conversations</p>
         </div>
 
-        <button id="btn-login" class="login">Se connecter</button>
-        <p class="register-text">Vous n'avez pas de compte ? <a href="#" class="register_link">S'inscrire</a></p>
-        <div id="error" style="color: red;"></div>
+        <div class="modal-body">
+            <div class="input-group">
+                <label class="input-label">Email</label>
+                <input type="text" id="email" class="modal-input" placeholder="votre.email@example.com">
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Mot de passe</label>
+                <input type="password" id="password" class="modal-input" placeholder="••••••••">
+            </div>
+
+            <div class="modal-options">
+                <label class="checkbox-label">
+                    <input type="checkbox" class="modal-checkbox">
+                    <span>Se rappeler de moi</span>
+                </label>
+                <a href="#" class="modal-link">Mot de passe oublié ?</a>
+            </div>
+
+            <div id="error" class="error-message"></div>
+
+            <button id="btn-login" class="modal-btn modal-btn-primary">
+                <span>Se connecter</span>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+
+            <button id="btn-continue-guest" class="modal-btn modal-btn-secondary">
+                <span>Continuer sans compte</span>
+            </button>
+        </div>
+
+        <div class="modal-footer">
+            <p class="modal-footer-text">
+                Vous n'avez pas de compte ?
+                <a href="#" class="register_link modal-link-primary">S'inscrire</a>
+            </p>
+        </div>
     </div>
 </div>
+
 <div class="modal-register" id="registerModal">
-    <div class="modalW">
-        <h2>Inscription</h2>
-        <input type="text" class="username" placeholder="Nom d'utilisateur" id="register-username">
-        <input type="email" class="mail" placeholder= "Email utilisateur" id="register-email">
-        <input type="password" class="password" placeholder="Mot de passe" id="register-password">
-        <input type="password" class="verifpassword" placeholder="Vérification du Mot de passe" id="register-verifpassword">
-        
-       
-            
-            <button id="btn-register" class="register">S'inscrire</button>
-            <p class="login-text">Vous avez déjà un compte ? <a href="#" class="login_link" >Se connecter</a></p>
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <button class="modal-close" onclick="document.getElementById('registerModal').style.display='none'">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+
+        <div class="modal-header">
+            <div class="modal-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                    <path d="M16 21V19C16 17.9391 15.5786 16.9217 14.8284 16.1716C14.0783 15.4214 13.0609 15 12 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21M20 8V14M23 11H17M12.5 7C12.5 8.933 10.933 10.5 9 10.5C7.067 10.5 5.5 8.933 5.5 7C5.5 5.067 7.067 3.5 9 3.5C10.933 3.5 12.5 5.067 12.5 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <h2 class="modal-title">Inscription</h2>
+            <p class="modal-subtitle">Créez votre compte pour commencer</p>
+        </div>
+
+        <div class="modal-body">
+            <div class="input-group">
+                <label class="input-label">Nom d'utilisateur</label>
+                <input type="text" id="register-username" class="modal-input" placeholder="Votre nom">
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Email</label>
+                <input type="email" id="register-email" class="modal-input" placeholder="votre.email@example.com">
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Mot de passe</label>
+                <input type="password" id="register-password" class="modal-input" placeholder="••••••••">
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Confirmer le mot de passe</label>
+                <input type="password" id="register-verifpassword" class="modal-input" placeholder="••••••••">
+            </div>
+
+            <button id="btn-register" class="modal-btn modal-btn-primary">
+                <span>S'inscrire</span>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+
+            <button id="btn-continue-guest-register" class="modal-btn modal-btn-secondary">
+                <span>Continuer sans compte</span>
+            </button>
+        </div>
+
+        <div class="modal-footer">
+            <p class="modal-footer-text">
+                Vous avez déjà un compte ?
+                <a href="#" class="login_link modal-link-primary">Se connecter</a>
+            </p>
+        </div>
     </div>
 </div>

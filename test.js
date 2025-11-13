@@ -78,7 +78,7 @@ async function testerConnexionBD(config) {
             const tableCheck = await client.query(`
                 SELECT EXISTS (
                     SELECT FROM information_schema.tables
-                    WHERE table_name = 'utilisateur'
+                    WHERE table_name = 'user'
                 );
             `);
             logTest('Vérification de la table "utilisateur"', tableCheck.rows[0].exists,
@@ -86,8 +86,8 @@ async function testerConnexionBD(config) {
 
             if (tableCheck.rows[0].exists) {
                 // Compter les utilisateurs
-                const countResult = await client.query('SELECT COUNT(*) FROM utilisateur');
-                logTest('Requête sur la table utilisateur', true,
+                const countResult = await client.query('SELECT COUNT(*) FROM user');
+                logTest('Requête sur la table user', true,
                         `Nombre d'utilisateurs: ${countResult.rows[0].count}`);
             }
         } catch (err) {

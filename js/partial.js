@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (begin) {
         begin.addEventListener('click', function() {
-            window.location.href = 'begin'; // Rediriger vers la page "Begin"
+            showLoginModal();
         });
     }
 
