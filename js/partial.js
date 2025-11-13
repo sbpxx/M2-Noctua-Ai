@@ -48,6 +48,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const loginLink = document.querySelector('.login_link');
     const closeModalButtons = document.querySelectorAll('.close-modal');
     const images = document.querySelectorAll('.grid-container img');
+    const btnContinueGuest = document.getElementById('btn-continue-guest');
+    const btnContinueGuestRegister = document.getElementById('btn-continue-guest-register');
     
 
     // Fonction pour afficher le modal de connexion
@@ -78,7 +80,22 @@ document.addEventListener('DOMContentLoaded', function() {
         loginLink.addEventListener('click', showLoginModal);
     }
 
-    
+    if (btnContinueGuest) {
+        btnContinueGuest.addEventListener('click', continueAsGuest);
+    }
+
+    if (btnContinueGuestRegister) {
+        btnContinueGuestRegister.addEventListener('click', continueAsGuest);
+    }
+
+    // Fonction pour continuer sans compte
+    function continueAsGuest() {
+        loginModal.style.display = 'none';
+        registerModal.style.display = 'none';
+        window.location.href = '/begin';
+    }
+
+
 
 
     // Fonction pour s'inscrire
