@@ -15,10 +15,10 @@ deploy_production:
     - ssh-keyscan -H 172.31.60.144 >> ~/.ssh/known_hosts
   script:
     - ssh root@172.31.60.144 "
-        cd /Bureau/Noctua/Noctua-AI &&
+        cd /root/Bureau/Noctua/Noctua-AI &&
         git pull origin main &&
         npm install --production &&
-        pm2 restart noctua || pm2 start . --name noctua
+        pm2 restart noctua || pm2 start index.js --name noctua
       "
   environment:
     name: production
