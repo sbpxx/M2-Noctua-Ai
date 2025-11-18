@@ -14,15 +14,19 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.static('.'));
 app.use(express.json());
 
-app.get('/', function(req, res) {  
+app.get('/favicon.ico', function(req, res) {
+    res.status(204).end(); // No Content - évite l'erreur 404 dans la console
+});
+
+app.get('/', function(req, res) {
     res.render('accueil'); // Utiliser le template EJS pour la page d'accueil
 });
 
-app.get('/chat', function(req, res) {  
+app.get('/chat', function(req, res) {
     res.render('chat'); // Utiliser le template EJS pour la page "cCat"
 });
 
-app.get('/begin', function(req, res) {  
+app.get('/begin', function(req, res) {
     res.render('begin'); // Utiliser le template EJS pour la page "Start Chat"
 });
 

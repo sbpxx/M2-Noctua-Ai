@@ -999,7 +999,7 @@ main {
 .sidebar .sidebar-layout {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  height: 100vh;
   z-index: 2;
   position: relative;
 }
@@ -1040,13 +1040,35 @@ transition: gap 0.3s ease;
     font-weight: 600;
 }
 
+.sidebar .sidebar-content {
+    flex-shrink: 0;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar .sidebar-content-discussion {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+.sidebar .sidebar-content-discussion::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
 .sidebar .sidebar-footer {
-    height: var(--sidebar-footer-height);
+    height: auto;
     display: flex;
     align-items: center;
-    justify-content: center;
     padding: 20px;
     border-top: 1px solid var(--border-color);
+    margin-top: auto;
+    flex-shrink: 0;
 }
 
 .sidebar .footer-box {
