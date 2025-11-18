@@ -37,7 +37,7 @@ app.post('/register', async (req, res) => {
 
         // Vérifier si l'adresse e-mail est déjà utilisée
         const emailCheck = await client.query(
-            'SELECT * FROM utilisateur WHERE email = $1',
+            'SELECT * FROM "user" WHERE email = $1',
             [req.body.email]
         );
 
@@ -49,12 +49,18 @@ app.post('/register', async (req, res) => {
         }
 
         const result = await client.query(
-            'INSERT INTO utilisateur (nom, email, mot_de_passe, datecreation) VALUES ($1, $2, $3, $4) RETURNING *',
-            [req.body.nom, req.body.email, req.body.mot_de_passe, new Date()]
+            'INSERT INTO "user" (name, email, password) VALUES ($1, $2, $3) RETURNING *',
+            [req.body.nom, req.body.email, req.body.mot_de_passe]
         );
 
-        console.log("Résultat de la requête:", result.rows);
-        res.json(result.rows[0]);
+        const newUser = result.rows[0];
+        console.log("INSCRIPTION RÉUSSIE");
+        console.log("Nouvel utilisateur créé:", {
+            id: newUser.id,
+            name: newUser.name,
+            email: newUser.email
+        });
+        res.json(newUser);
         client.release();
     } catch (err) {
         console.error('Erreur lors de l\'ajout de l\'utilisateur:', err.stack);
@@ -70,18 +76,24 @@ app.post('/login', async (req, res) => {
 
         const client = await pool.connect();
         const result = await client.query(
-            'SELECT * FROM utilisateur WHERE email = $1 AND mot_de_passe = $2',
+            'SELECT * FROM "user" WHERE email = $1 AND password = $2',
             [req.body.email, req.body.password]
         );
 
         if (result.rows.length > 0) {
-            console.log("Utilisateur trouvé:", result.rows[0]);
-            const token = jwt.sign({ id: result.rows[0].id }, secretKey, { expiresIn: '1h' });
+            const user = result.rows[0];
+            console.log("CONNEXION RÉUSSIE");
+            console.log("Utilisateur connecté:", {
+                id: user.id,
+                name: user.name,
+                email: user.email
+            });
+            const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: '1h' });
             res.status(200).json({ token });
         } else {
             // Regarder si le mail existe
             const emailCheck = await client.query(
-                'SELECT * FROM utilisateur WHERE email = $1',
+                'SELECT * FROM "user" WHERE email = $1',
                 [req.body.email]
             );
             if (emailCheck.rows.length > 0) {
@@ -110,7 +122,7 @@ app.get('/user', authenticateToken, async (req, res) => {
 
         const client = await pool.connect();
         const result = await client.query(
-            'SELECT idutilisateur, nom, email, datecreation FROM utilisateur WHERE email = $1',
+            'SELECT id, name, email FROM "user" WHERE email = $1',
             [email]
         );
 

@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
 
 
-    updateNavBar();
+    updateInfo();
 
 
     // Sélectionner les éléments de navigation
@@ -23,7 +23,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     if (begin) {
-        begin.addEventListener('click', function() {
+        begin.addEventListener('click', async function() {
+            const token = sessionStorage.getItem('authToken');
+            if (token) {
+                // vérification token
+                const isValid = await verifyToken();
+                if (isValid) {
+                    window.location.href = '/begin';
+                    return;
+                }
+            }
+            // sinon, afficher le modal de connexion
             showLoginModal();
         });
     }
@@ -36,7 +46,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     //Si il fait un click peut importe ou sur on verifier le jeton
     window.addEventListener('click', function() {
-        updateNavBar();
+        updateInfo();
     });
 
     
@@ -220,19 +230,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     return response.json();
                 })
                 .then(userData => {
-                    // Stocker le nom de l'utilisateur dans sessionStorage
-                    sessionStorage.setItem('userName', userData.nom);
+                                       
+                    sessionStorage.setItem('userName', userData.name);
+
+                    showSuccess('Connexion réussie. Bienvenue!', 1500);
+
+                    // Redirection
+                    setTimeout(() => {
+                        window.location.href = '/begin';
+                    }, 1500);
                 })
                 .catch((error) => {
                     console.error('Error:', error);
                     showError(error.message, 3000);
                 });
-
-                showSuccess('Connexion réussie. Bienvenue!', 3000);
-                updateNavBar();
-                // Fermer le modal
-                loginModal.style.display = 'none';
-                verifyToken();
             }
         })
         .catch((error) => {
