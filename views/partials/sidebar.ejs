@@ -71,10 +71,22 @@
 
       <div class="sidebar-footer">
         <div class="footer-box">
-          <button id="user-connection-btn" class="user-connection-btn">
-            <span class="user-icon"><i class="ri-user-line"></i></span>
-            <span class="user-text">Connectez-vous</span>
-          </button>
+          <div class="user-menu-container">
+            <button id="user-connection-btn" class="user-connection-btn">
+              <span class="user-icon"><i class="ri-user-line"></i></span>
+              <span class="user-text">Connectez-vous</span>
+            </button>
+            <div id="user-dropdown-menu" class="user-dropdown-menu">
+              <a href="#" id="settings-btn" class="dropdown-item">
+                <i class="ri-settings-3-line"></i>
+                <span>Paramètres</span>
+              </a>
+              <a href="#" id="logout-btn" class="dropdown-item">
+                <i class="ri-logout-box-line"></i>
+                <span>Déconnexion</span>
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>

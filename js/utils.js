@@ -106,11 +106,13 @@ function updateUserButton(isConnected, userName) {
     if (isConnected && userName) {
         userText.textContent = userName;
         userIcon.className = 'ri-user-smile-fill';
-        userBtn.onclick = () => {
-            console.log('Profil utilisateur cliqué');
+
+        // Afficher le menu déroulant au clic
+        userBtn.onclick = (e) => {
+            e.stopPropagation();
+            toggleDropdownMenu();
         };
     } else {
- 
         userText.textContent = 'Connectez-vous';
         userIcon.className = 'ri-user-line';
         userBtn.onclick = () => {
@@ -120,4 +122,109 @@ function updateUserButton(isConnected, userName) {
             }
         };
     }
+}
+
+// fonction pour afficher/masquer le menu déroulant
+function toggleDropdownMenu() {
+    const dropdownMenu = document.getElementById('user-dropdown-menu');
+    if (!dropdownMenu) return;
+
+    dropdownMenu.classList.toggle('show');
+}
+
+// fonction pour fermer le menu déroulant si on clique ailleurs
+document.addEventListener('click', (e) => {
+    const dropdownMenu = document.getElementById('user-dropdown-menu');
+    const userBtn = document.getElementById('user-connection-btn');
+
+    if (dropdownMenu && !userBtn?.contains(e.target) && !dropdownMenu.contains(e.target)) {
+        dropdownMenu.classList.remove('show');
+    }
+});
+
+// fonction pour gérer la déconnexion
+function handleLogout() {
+    // Supprimer les informations de session
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('userName');
+
+    // Fermer le menu déroulant
+    const dropdownMenu = document.getElementById('user-dropdown-menu');
+    if (dropdownMenu) {
+        dropdownMenu.classList.remove('show');
+    }
+
+    // Mettre à jour l'interface
+    updateUserButton(false, null);
+
+    // Afficher un message de succès
+    showSuccess('Vous avez été déconnecté avec succès', 3000);
+
+    console.log('Déconnexion réussie');
+}
+
+// Attacher l'événement de déconnexion au bouton
+document.addEventListener('DOMContentLoaded', () => {
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleLogout();
+        });
+    }
+
+    // Gestion de l'ouverture de la modale paramètres
+    const settingsBtn = document.getElementById('settings-btn');
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openSettingsModal();
+        });
+    }
+
+    // Gestion de la navigation dans les paramètres
+    initSettingsNavigation();
+});
+
+// fonction pour ouvrir la modale paramètres
+function openSettingsModal() {
+    const settingsModal = document.getElementById('settingsModal');
+    const dropdownMenu = document.getElementById('user-dropdown-menu');
+
+    if (settingsModal) {
+        settingsModal.style.display = 'flex';
+    }
+
+    // Fermer le menu déroulant
+    if (dropdownMenu) {
+        dropdownMenu.classList.remove('show');
+    }
+}
+
+// fonction pour initialiser la navigation dans les paramètres
+function initSettingsNavigation() {
+    const menuItems = document.querySelectorAll('.settings-menu-item');
+    const sections = document.querySelectorAll('.settings-section');
+
+    menuItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+
+            // Récupérer la section à afficher
+            const sectionId = item.getAttribute('data-section');
+
+            // Retirer la classe active de tous les éléments
+            menuItems.forEach(mi => mi.classList.remove('active'));
+            sections.forEach(s => s.classList.remove('active'));
+
+            // Ajouter la classe active à l'élément cliqué
+            item.classList.add('active');
+
+            // Afficher la section correspondante
+            const targetSection = document.getElementById(`section-${sectionId}`);
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
+        });
+    });
 }

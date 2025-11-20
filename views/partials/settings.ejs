@@ -1,0 +1,165 @@
+<div class="modal-settings" id="settingsModal">
+    <div class="modal-overlay"></div>
+    <div class="settings-modal-content">
+        <button class="modal-close" onclick="document.getElementById('settingsModal').style.display='none'">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+
+        <div class="settings-layout">
+            <!-- Menu gauche -->
+            <div class="settings-sidebar">
+                <div class="settings-header">
+                    <div class="settings-icon">
+                        <i class="ri-settings-3-fill"></i>
+                    </div>
+                    <h2>Paramètres</h2>
+                </div>
+
+                <nav class="settings-menu">
+                    <a href="#" class="settings-menu-item active" data-section="general">
+                        <i class="ri-settings-4-line"></i>
+                        <span>Général</span>
+                    </a>
+                    <a href="#" class="settings-menu-item" data-section="profile">
+                        <i class="ri-user-settings-line"></i>
+                        <span>Profil</span>
+                    </a>
+                    <a href="#" class="settings-menu-item" data-section="data">
+                        <i class="ri-database-2-line"></i>
+                        <span>Données</span>
+                    </a>
+                    <a href="#" class="settings-menu-item" data-section="about">
+                        <i class="ri-information-line"></i>
+                        <span>À propos</span>
+                    </a>
+                </nav>
+            </div>
+
+            <!-- droite -->
+            <div class="settings-content">
+                <!-- Général -->
+                <div class="settings-section active" id="section-general">
+                    <h3 class="settings-section-title">Paramètres Généraux</h3>
+                    <p class="settings-section-subtitle">Configurez vos préférences générales</p>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Thème</label>
+                        <select class="settings-select">
+                            <option value="dark">Sombre</option>
+                            <option value="light">Clair</option>
+                            <option value="auto">Automatique</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Langue</label>
+                        <select class="settings-select">
+                            <option value="fr">Français</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-toggle">
+                            <input type="checkbox" checked>
+                            <span class="settings-toggle-slider"></span>
+                            <span class="settings-toggle-label">Notifications activées</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Profil -->
+                <div class="settings-section" id="section-profile">
+                    <h3 class="settings-section-title">Profil Utilisateur</h3>
+                    <p class="settings-section-subtitle">Gérez vos informations personnelles</p>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Nom d'utilisateur</label>
+                        <input type="text" class="settings-input" id="profile-username" placeholder="Votre nom">
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Email</label>
+                        <input type="email" class="settings-input" id="profile-email" placeholder="votre.email@example.com">
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Mot de passe</label>
+                        <button class="settings-btn-secondary">Changer le mot de passe</button>
+                    </div>
+
+                    <button class="settings-btn-primary">
+                        <span>Enregistrer les modifications</span>
+                        <i class="ri-save-line"></i>
+                    </button>
+                </div>
+
+                <!-- Données -->
+                <div class="settings-section" id="section-data">
+                    <h3 class="settings-section-title">Gestion des Données</h3>
+                    <p class="settings-section-subtitle">Contrôlez vos données et votre historique</p>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Historique des conversations</label>
+                        <p class="settings-description">Supprimez l'historique de toutes vos conversations</p>
+                        <button class="settings-btn-danger">
+                            <i class="ri-delete-bin-line"></i>
+                            <span>Supprimer l'historique</span>
+                        </button>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Exporter les données</label>
+                        <p class="settings-description">Téléchargez une copie de vos données</p>
+                        <button class="settings-btn-secondary">
+                            <i class="ri-download-line"></i>
+                            <span>Télécharger mes données</span>
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- À propos -->
+                <div class="settings-section" id="section-about">
+                    <h3 class="settings-section-title">À propos de Noctua</h3>
+                    <p class="settings-section-subtitle">Informations sur l'application</p>
+
+                    <div class="about-info">
+                        <div class="about-logo">
+                            <div class="about-icon">N</div>
+                            <h4>Noctua AI</h4>
+                        </div>
+
+                        <div class="about-details">
+                            <div class="about-item">
+                                <span class="about-label">Version</span>
+                                <span class="about-value">1.0.0</span>
+                            </div>
+                            <div class="about-item">
+                                <span class="about-label">Type</span>
+                                <span class="about-value">IA Universitaire</span>
+                            </div>
+                            <div class="about-item">
+                                <span class="about-label">Licence</span>
+                                <span class="about-value">NULL</span>
+                            </div>
+                        </div>
+
+                        <div class="about-links">
+                            <a href="#" class="about-link">
+                                <i class="ri-shield-check-line"></i>
+                                <span>Confidentialité</span>
+                            </a>
+                            <a href="#" class="about-link">
+                                <i class="ri-article-line"></i>
+                                <span>Conditions d'utilisation</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
