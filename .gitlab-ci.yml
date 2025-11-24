@@ -8,17 +8,40 @@ deploy_production:
   before_script:
     - apt-get update -qq && apt-get install -y -qq openssh-client
     - eval $(ssh-agent -s)
-    - chmod 400 $SSH_PRIVATE_KEY
-    - ssh-add $SSH_PRIVATE_KEY
+    - echo "$SSH_PRIVATE_KEY" > /tmp/deploy_key
+    - chmod 600 /tmp/deploy_key
+    - ssh-add /tmp/deploy_key
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - ssh-keyscan -H 172.31.60.144 >> ~/.ssh/known_hosts
   script:
-    - ssh root@172.31.60.144 "
-        cd /Bureau/Noctua/Noctua-AI &&
-        git pull origin main &&
-        npm install --production &&
-        pm2 restart noctua || pm2 start index.js --name noctua
+    - |
+      ssh root@172.31.60.144 "
+        set -e
+        cd /Bureau/Noctua/Noctua-AI || { echo 'Erreur: Répertoire non trouvé'; exit 1; }
+
+        echo ' Pull des dernières modifications...'
+        git pull origin main || { echo 'Erreur: Git pull a échoué'; exit 1; }
+
+        echo ' Installation des dépendances...'
+        npm install --production || { echo 'Erreur: npm install a échoué'; exit 1; }
+
+        echo ' Redémarrage de PM2...'
+        if pm2 describe noctua > /dev/null 2>&1; then
+          pm2 restart noctua
+          echo ' Application redémarrée avec succès'
+        else
+          pm2 start index.js --name noctua
+          echo ' Application démarrée avec succès'
+        fi
+
+        pm2 save
+        echo ' Configuration PM2 sauvegardée'
       "
+  after_script:
+    - rm -f /tmp/deploy_key
   environment:
     name: production
+    url: http://172.31.60.144
+  tags:
+    - docker
