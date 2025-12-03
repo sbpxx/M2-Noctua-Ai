@@ -26,7 +26,10 @@ deploy_production:
     - echo "Configuration SSH..."
     - apt-get update -qq && apt-get install -y -qq openssh-client git
     - eval $(ssh-agent -s)
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - echo "$SSH_PRIVATE_KEY" > /tmp/deploy_key
+    - chmod 600 /tmp/deploy_key
+    - ssh-add /tmp/deploy_key
+    - rm /tmp/deploy_key
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - ssh-keyscan -H 172.31.60.144 >> ~/.ssh/known_hosts
