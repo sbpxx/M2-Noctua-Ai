@@ -147,6 +147,7 @@ function handleLogout() {
     // Supprimer les informations de session
     sessionStorage.removeItem('authToken');
     sessionStorage.removeItem('userName');
+    sessionStorage.removeItem('userEmail');
 
     // Fermer le menu déroulant
     const dropdownMenu = document.getElementById('user-dropdown-menu');
@@ -161,6 +162,13 @@ function handleLogout() {
     showSuccess('Vous avez été déconnecté avec succès', 3000);
 
     console.log('Déconnexion réussie');
+
+    // Rediriger vers begin si on est sur la page chat
+    if (window.location.pathname === '/chat') {
+        setTimeout(() => {
+            window.location.href = '/begin';
+        }, 1500);
+    }
 }
 
 // Attacher l'événement de déconnexion au bouton

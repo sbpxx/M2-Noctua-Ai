@@ -157,6 +157,49 @@ app.get('/protected', authenticateToken, (req, res) => {
     res.json({ message: 'Accès autorisé', user: req.user });
 });
 
+// Créer une discussion et stocker le premier message
+app.post('/conversations', async (req, res) => {
+    try {
+        const { user_id, first_message } = req.body;
+        const client = await pool.connect();
+
+        const title = first_message.substring(0, 50);
+        const conversationResult = await client.query(
+            'INSERT INTO conversations (user_id, title, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *',
+            [user_id, title]
+        );
+
+        const conversation = conversationResult.rows[0];
+
+        await client.query(
+            'INSERT INTO messages (conversation_id, sender, content, created_at) VALUES ($1, $2, $3, NOW())',
+            [conversation.id, 'user', first_message]
+        );
+
+        client.release();
+        res.json(conversation);
+    } catch (err) {
+        console.error('Erreur:', err);
+        res.status(500).json({ error: 'Erreur lors de la création de la conversation' });
+    }
+});
+
+// Récupérer les discussions d'un utilisateur
+app.get('/conversations/user/:userId', async (req, res) => {
+    try {
+        const client = await pool.connect();
+        const result = await client.query(
+            'SELECT * FROM conversations WHERE user_id = $1 ORDER BY updated_at DESC',
+            [req.params.userId]
+        );
+        client.release();
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Erreur:', err);
+        res.status(500).json({ error: 'Erreur' });
+    }
+});
+
 app.listen(port, () => {
     console.log('Server started on http://localhost:' + port);
 });

@@ -230,8 +230,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     return response.json();
                 })
                 .then(userData => {
-                                       
+
                     sessionStorage.setItem('userName', userData.name);
+                    sessionStorage.setItem('userEmail', userData.email);
 
                     showSuccess('Connexion réussie. Bienvenue!', 1500);
 
@@ -330,3 +331,61 @@ if (document.getElementById('send-btn')) {
         }
     });
 }
+
+// Charger les discussions de l'utilisateur dans la sidebar
+async function loadDiscussions() {
+    const token = sessionStorage.getItem('authToken');
+    const email = sessionStorage.getItem('userEmail');
+
+    console.log('loadDiscussions - token:', token ? 'présent' : 'absent');
+    console.log('loadDiscussions - email:', email);
+
+    if (!token || !email) {
+        console.log('loadDiscussions - arrêt car pas de token ou email');
+        return;
+    }
+
+    try {
+        const userResponse = await fetch(`/user?email=${encodeURIComponent(email)}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const userData = await userResponse.json();
+        console.log('loadDiscussions - userData:', userData);
+
+        const conversationsResponse = await fetch(`/conversations/user/${userData.id}`);
+        const conversations = await conversationsResponse.json();
+        console.log('loadDiscussions - conversations:', conversations);
+
+        const discussionsList = document.getElementById('discussions-list');
+        if (!discussionsList) {
+            console.log('loadDiscussions - discussions-list introuvable');
+            return;
+        }
+
+        // Vider la liste sauf le header
+        while (discussionsList.children.length > 1) {
+            discussionsList.removeChild(discussionsList.lastChild);
+        }
+
+        conversations.forEach(conv => {
+            const li = document.createElement('li');
+            li.className = 'menu-item discussion';
+            li.innerHTML = `<a href="#"><span class="menu-title">${conv.title}</span></a>`;
+            discussionsList.appendChild(li);
+            console.log('loadDiscussions - discussion ajoutée:', conv.title);
+        });
+        console.log('loadDiscussions - ' + conversations.length + ' discussions chargées');
+        console.log('loadDiscussions - discussionsList.children.length:', discussionsList.children.length);
+    } catch (err) {
+        console.error('loadDiscussions - Erreur:', err);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(loadDiscussions, 100);
+});
+
+// Recharger les discussions quand on navigue vers la page
+window.addEventListener('pageshow', function() {
+    setTimeout(loadDiscussions, 100);
+});
