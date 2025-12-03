@@ -41,7 +41,7 @@ app.post('/register', async (req, res) => {
 
         // Vérifier si l'adresse e-mail est déjà utilisée
         const emailCheck = await client.query(
-            'SELECT * FROM "user" WHERE email = $1',
+            'SELECT * FROM "users" WHERE email = $1',
             [req.body.email]
         );
 
@@ -53,7 +53,7 @@ app.post('/register', async (req, res) => {
         }
 
         const result = await client.query(
-            'INSERT INTO "user" (name, email, password) VALUES ($1, $2, $3) RETURNING *',
+            'INSERT INTO "users" (name, email, password) VALUES ($1, $2, $3) RETURNING *',
             [req.body.nom, req.body.email, req.body.mot_de_passe]
         );
 
@@ -80,7 +80,7 @@ app.post('/login', async (req, res) => {
 
         const client = await pool.connect();
         const result = await client.query(
-            'SELECT * FROM "user" WHERE email = $1 AND password = $2',
+            'SELECT * FROM "users" WHERE email = $1 AND password = $2',
             [req.body.email, req.body.password]
         );
 
@@ -97,7 +97,7 @@ app.post('/login', async (req, res) => {
         } else {
             // Regarder si le mail existe
             const emailCheck = await client.query(
-                'SELECT * FROM "user" WHERE email = $1',
+                'SELECT * FROM "users" WHERE email = $1',
                 [req.body.email]
             );
             if (emailCheck.rows.length > 0) {
@@ -126,7 +126,7 @@ app.get('/user', authenticateToken, async (req, res) => {
 
         const client = await pool.connect();
         const result = await client.query(
-            'SELECT id, name, email FROM "user" WHERE email = $1',
+            'SELECT id, name, email FROM "users" WHERE email = $1',
             [email]
         );
 
