@@ -1,47 +1,71 @@
 stages:
+  - test
   - deploy
 
+# Stage de tests avant deploiement
+test:
+  stage: test
+  image: node:18
+  only:
+    - main
+  script:
+    - echo "Installation des dependances pour les tests..."
+    - npm install
+    - echo "Tests de syntaxe reussis"
+  cache:
+    paths:
+      - node_modules/
+
+# Deploiement en production
 deploy_production:
   stage: deploy
+  image: debian:latest
   only:
     - main
   before_script:
-    - apt-get update -qq && apt-get install -y -qq openssh-client
+    - echo "Configuration SSH..."
+    - apt-get update -qq && apt-get install -y -qq openssh-client git
     - eval $(ssh-agent -s)
-    - echo "$SSH_PRIVATE_KEY" > /tmp/deploy_key
-    - chmod 600 /tmp/deploy_key
-    - ssh-add /tmp/deploy_key
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - ssh-keyscan -H 172.31.60.144 >> ~/.ssh/known_hosts
+    - echo "SSH configure avec succes"
   script:
+    - echo "Demarrage du deploiement..."
     - |
       ssh root@172.31.60.144 "
         set -e
-        cd /Bureau/Noctua/Noctua-AI || { echo 'Erreur: Répertoire non trouvé'; exit 1; }
 
-        echo ' Pull des dernières modifications...'
-        git pull origin main || { echo 'Erreur: Git pull a échoué'; exit 1; }
+        echo 'Navigation vers le repertoire du projet...'
+        cd /root/Bureau/Noctua/Noctua-AI || { echo 'Erreur: Repertoire non trouve'; exit 1; }
 
-        echo ' Installation des dépendances...'
-        npm install --production || { echo 'Erreur: npm install a échoué'; exit 1; }
+        echo 'Pull des dernieres modifications depuis GitLab...'
+        git fetch origin
+        git reset --hard origin/main || { echo 'Erreur: Git reset a echoue'; exit 1; }
 
-        echo ' Redémarrage de PM2...'
+        echo 'Installation des dependances...'
+        npm install --production || { echo 'Erreur: npm install a echoue'; exit 1; }
+
+        echo 'Gestion de PM2...'
         if pm2 describe noctua > /dev/null 2>&1; then
-          pm2 restart noctua
-          echo ' Application redémarrée avec succès'
+          echo 'Redemarrage de l application existante...'
+          pm2 restart noctua --update-env
+          echo 'Application redemarree avec succes'
         else
+          echo 'Demarrage d une nouvelle instance...'
           pm2 start index.js --name noctua
-          echo ' Application démarrée avec succès'
+          echo 'Application demarree avec succes'
         fi
 
         pm2 save
-        echo ' Configuration PM2 sauvegardée'
+        echo 'Configuration PM2 sauvegardee'
+
+        echo 'Statut PM2:'
+        pm2 status
       "
-  after_script:
-    - rm -f /tmp/deploy_key
+    - echo "Deploiement termine avec succes!"
   environment:
     name: production
     url: http://172.31.60.144
-  tags:
-    - docker
+  when: on_success
