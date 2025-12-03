@@ -26,7 +26,7 @@ deploy_production:
     - echo "Configuration SSH..."
     - apt-get update -qq && apt-get install -y -qq openssh-client git
     - eval $(ssh-agent -s)
-    - echo "$SSH_PRIVATE_KEY" > /tmp/deploy_key
+    - echo "$SSH_PRIVATE_KEY" | base64 -d > /tmp/deploy_key
     - chmod 600 /tmp/deploy_key
     - ssh-add /tmp/deploy_key
     - rm /tmp/deploy_key
