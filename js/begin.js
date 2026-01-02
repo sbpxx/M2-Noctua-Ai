@@ -21,7 +21,6 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!token || !email) return;
 
             try {
-                console.log('begin.js - Envoi du message');
                 const userResponse = await fetch(`/user?email=${encodeURIComponent(email)}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -31,7 +30,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
                 const userData = await userResponse.json();
-                console.log('begin.js - userData:', userData);
 
                 const convResponse = await fetch('/conversations', {
                     method: 'POST',
@@ -47,13 +45,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
                 const convData = await convResponse.json();
-                console.log('begin.js - conversation créée:', convData);
-                console.log('begin.js - REDIRECTION DANS 500ms');
 
-                // Attendre un peu avant de rediriger pour être sûr
-                await new Promise(resolve => setTimeout(resolve, 500));
+                localStorage.setItem('newConversation', JSON.stringify(convData));
 
-                console.log('begin.js - REDIRECTION MAINTENANT');
                 window.location.href = '/chat';
             } catch (err) {
                 console.error('begin.js - Erreur:', err);

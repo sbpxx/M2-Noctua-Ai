@@ -12,7 +12,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Sélectionner les éléments de navigation
     const accueilNav = document.getElementById('accueil');
     const begin = document.getElementById('begin');
-    const startChatBtn = document.getElementById('start-chat-btn');
 
     // Ajouter des écouteurs d'événements pour les éléments de navigation
     if (accueilNav) {
@@ -38,11 +37,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    if (startChatBtn) {
-        startChatBtn.addEventListener('click', function() {
-            window.location.href = 'chat'; // Rediriger vers la page "Chat"
-        });
-    }
+    // NOTE: L'écouteur pour start-chat-btn a été supprimé car il est géré dans begin.js
+    // qui crée la conversation avant de rediriger vers /chat
 
     //Si il fait un click peut importe ou sur on verifier le jeton
     window.addEventListener('click', function() {
@@ -337,11 +333,7 @@ async function loadDiscussions() {
     const token = sessionStorage.getItem('authToken');
     const email = sessionStorage.getItem('userEmail');
 
-    console.log('loadDiscussions - token:', token ? 'présent' : 'absent');
-    console.log('loadDiscussions - email:', email);
-
     if (!token || !email) {
-        console.log('loadDiscussions - arrêt car pas de token ou email');
         return;
     }
 
@@ -350,15 +342,27 @@ async function loadDiscussions() {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const userData = await userResponse.json();
-        console.log('loadDiscussions - userData:', userData);
 
         const conversationsResponse = await fetch(`/conversations/user/${userData.id}`);
         const conversations = await conversationsResponse.json();
-        console.log('loadDiscussions - conversations:', conversations);
+
+        // Vérifier s'il y a une nouvelle conversation à ajouter
+        const newConvString = localStorage.getItem('newConversation');
+        if (newConvString) {
+            const newConv = JSON.parse(newConvString);
+
+            // Vérifier si la conversation n'est pas déjà dans la liste
+            const exists = conversations.some(conv => conv.id === newConv.id);
+            if (!exists) {
+                conversations.unshift(newConv);
+            }
+
+            // Supprimer du localStorage pour ne pas l'ajouter à nouveau
+            localStorage.removeItem('newConversation');
+        }
 
         const discussionsList = document.getElementById('discussions-list');
         if (!discussionsList) {
-            console.log('loadDiscussions - discussions-list introuvable');
             return;
         }
 
@@ -372,20 +376,29 @@ async function loadDiscussions() {
             li.className = 'menu-item discussion';
             li.innerHTML = `<a href="#"><span class="menu-title">${conv.title}</span></a>`;
             discussionsList.appendChild(li);
-            console.log('loadDiscussions - discussion ajoutée:', conv.title);
         });
-        console.log('loadDiscussions - ' + conversations.length + ' discussions chargées');
-        console.log('loadDiscussions - discussionsList.children.length:', discussionsList.children.length);
     } catch (err) {
         console.error('loadDiscussions - Erreur:', err);
     }
 }
 
+// Variable pour éviter les appels multiples
+let isLoadingDiscussions = false;
+
+async function safeLoadDiscussions() {
+    if (isLoadingDiscussions) {
+        return;
+    }
+    isLoadingDiscussions = true;
+    await loadDiscussions();
+    isLoadingDiscussions = false;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(loadDiscussions, 100);
+    setTimeout(safeLoadDiscussions, 100);
 });
 
 // Recharger les discussions quand on navigue vers la page
 window.addEventListener('pageshow', function() {
-    setTimeout(loadDiscussions, 100);
+    setTimeout(safeLoadDiscussions, 100);
 });
