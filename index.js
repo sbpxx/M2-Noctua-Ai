@@ -1,11 +1,16 @@
 const express = require('express');
 const app = express();
+const http = require('http');
+const { Server } = require('socket.io');
+const axios = require('axios');
 const port = 8080;
 const path = require('path');
 const pool = require('./js/libraryBDD'); // Importer le pool de connexions
 const jwt = require('jsonwebtoken');
 
 const secretKey = 'your-256-bit-secret'; // Clé secrète pour signer les JWT
+const OLLAMA_API_URL = 'http://localhost:11434/api/chat';
+const OLLAMA_MODEL = 'llama3.2';
 
 // Configurer le moteur de templates EJS
 app.set('view engine', 'ejs');
@@ -200,6 +205,159 @@ app.get('/conversations/user/:userId', async (req, res) => {
     }
 });
 
-app.listen(port, () => {
+// Récupérer les messages d'une conversation
+app.get('/conversations/:conversationId/messages', async (req, res) => {
+    try {
+        const client = await pool.connect();
+        const result = await client.query(
+            'SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+            [req.params.conversationId]
+        );
+        client.release();
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Erreur:', err);
+        res.status(500).json({ error: 'Erreur lors de la récupération des messages' });
+    }
+});
+
+// Créer serveur HTTP et Socket.io
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+
+// Socket.io handlers
+io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
+
+    // Rejoindre une conversation
+    socket.on('join-conversation', (conversationId) => {
+        socket.join(`conversation-${conversationId}`);
+        console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
+    });
+
+    // Gérer l'envoi de messages
+    socket.on('send-message', async (data) => {
+        try {
+            const { conversationId, userId, message } = data;
+
+            if (!conversationId || !message) {
+                socket.emit('error', { message: 'Données invalides' });
+                return;
+            }
+
+            const client = await pool.connect();
+
+            try {
+                // Vérifier si le message existe déjà 
+                const existingMessage = await client.query(
+                    'SELECT id FROM messages WHERE conversation_id = $1 AND sender = $2 AND content = $3 ORDER BY created_at DESC LIMIT 1',
+                    [conversationId, 'user', message]
+                );
+
+                let shouldInsertUserMessage = true;
+                if (existingMessage.rows.length > 0) {
+                    // Le message existe déjà, ne pas le réinsérer
+                    shouldInsertUserMessage = false;
+                    console.log('Message utilisateur déjà existant, pas de réinsertion');
+                }
+
+                if (shouldInsertUserMessage) {
+                    // Stocker le message utilisateur
+                    await client.query(
+                        'INSERT INTO messages (conversation_id, sender, content, created_at) VALUES ($1, $2, $3, NOW())',
+                        [conversationId, 'user', message]
+                    );
+
+                    // Mettre à jour la conversation
+                    await client.query(
+                        'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
+                        [conversationId]
+                    );
+
+                    // Émettre le message utilisateur à la room
+                    io.to(`conversation-${conversationId}`).emit('receive-message', {
+                        sender: 'user',
+                        content: message,
+                        created_at: new Date()
+                    });
+                }
+
+                // Récupérer l'historique pour le contexte
+                const historyResult = await client.query(
+                    'SELECT sender, content FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+                    [conversationId]
+                );
+
+                // Construire le contexte pour Ollama (limiter à 20 derniers messages)
+                let messages = historyResult.rows.map(row => ({
+                    role: row.sender === 'user' ? 'user' : 'assistant',
+                    content: row.content
+                }));
+
+                // Limiter le contexte pour éviter de dépasser la fenêtre
+                if (messages.length > 20) {
+                    messages = messages.slice(-20);
+                }
+
+                // Appeler l'API Ollama
+                let aiMessage;
+                try {
+                    console.log('Calling Ollama API...');
+                    const ollamaResponse = await axios.post(OLLAMA_API_URL, {
+                        model: OLLAMA_MODEL,
+                        messages: messages,
+                        stream: false
+                    }, {
+                        timeout: 60000
+                    });
+
+                    aiMessage = ollamaResponse.data.message.content;
+                    console.log('Ollama response received');
+
+                } catch (ollamaError) {
+                    console.error('Ollama API error:', ollamaError.message);
+                    aiMessage = "Désolé, le service IA est temporairement indisponible. Veuillez réessayer dans quelques instants.";
+                }
+
+                // Stocker la réponse IA
+                await client.query(
+                    'INSERT INTO messages (conversation_id, sender, content, created_at) VALUES ($1, $2, $3, NOW())',
+                    [conversationId, 'bot', aiMessage]
+                );
+
+                // Mettre à jour la conversation à nouveau
+                await client.query(
+                    'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
+                    [conversationId]
+                );
+
+                // Émettre la réponse IA à la room
+                io.to(`conversation-${conversationId}`).emit('receive-message', {
+                    sender: 'bot',
+                    content: aiMessage,
+                    created_at: new Date()
+                });
+
+            } finally {
+                client.release();
+            }
+
+        } catch (error) {
+            console.error('Error processing message:', error);
+            socket.emit('error', { message: 'Erreur lors du traitement du message' });
+        }
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+    });
+});
+
+server.listen(port, () => {
     console.log('Server started on http://localhost:' + port);
 });

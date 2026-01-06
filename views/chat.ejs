@@ -8,10 +8,6 @@
     href="https://cdn.jsdelivr.net/npm/remixicon@4.7.0/fonts/remixicon.css"
     rel="stylesheet"
 />
-    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
-    <script src="../js/chat.js"></script>
-    <script src="../js/partial.js"></script>
-    <script src="../js/utils.js"></script>
     <title>Chat</title>
 </head>
 
@@ -23,87 +19,7 @@
     <main class="chat-main">
         <div id="main-chat" class="main-chat">
             <div id="chat-container" class="chat-container">
-
-                <div class="message-bubble user">
-                    <div class="message-content">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</div>
-                </div>
-
-                <div class="message-bubble ai">
-                    <div class="message-content">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.</div>
-                </div>
-
-                <div class="message-bubble user">
-                    <div class="message-content">Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</div>
-                </div>
-
-                <div class="message-bubble ai">
-                    <div class="message-content">Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</div>
-                </div>
-
-                <div class="message-bubble user">
-                    <div class="message-content">Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.</div>
-                </div>
-
-                <div class="message-bubble ai">
-                    <div class="message-content">Sunt in culpa qui officia deserunt mollit anim id est laborum.</div>
-                </div>
-
-                <div class="message-bubble user">
-                    <div class="message-content">Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.</div>
-                </div>
-
-                <div class="message-bubble ai">
-                    <div class="message-content">Sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.</div>
-                </div>
-
-                <div class="message-bubble user">
-                    <div class="message-content">Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?</div>
-                </div>
-
-                <div class="message-bubble ai">
-                    <div class="message-content">At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores.</div>
-                </div>
-
-                <div class="message-bubble user">
-                    <div class="message-content">Et harum quidem rerum facilis est et expedita distinctio.</div>
-                </div>
-
-                <div class="message-bubble ai">
-                    <div class="message-content">Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae.</div>
-                </div>
-
-                <div class="message-bubble user">
-                    <div class="message-content">Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat.</div>
-                </div>
-
-                <div class="message-bubble ai">
-                    <div class="message-content">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</div>
-                </div>
-
-                <div class="message-bubble user">
-                    <div class="message-content">Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.</div>
-                </div>
-
-                <div class="message-bubble ai">
-                    <div class="message-content">Totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.</div>
-                </div>
-
-                <div class="message-bubble user">
-                    <div class="message-content">Nemo enim ipsam voluptatem.</div>
-                </div>
-
-                <div class="message-bubble ai">
-                    <div class="message-content">Quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.</div>
-                </div>
-
-
-                <div class="message-bubble user">
-                    <div class="message-content">Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit?</div>
-                </div>
-
-                <div class="message-bubble ai">
-                    <div class="message-content">Sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur?</div>
-                </div>
+                <!-- Messages inserées ici -->
             </div>
             <div class="chat-input-area">
                 <input type="text" id="chat-input" placeholder="Tapez votre message..." />
@@ -112,6 +28,10 @@
         </div>
     </main>
 
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/partial.js"></script>
+    <script src="../js/chat.js"></script>
 </body>
 
 </html>

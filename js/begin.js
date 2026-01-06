@@ -47,8 +47,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 const convData = await convResponse.json();
 
                 localStorage.setItem('newConversation', JSON.stringify(convData));
+                localStorage.setItem('currentConversationId', convData.id);
 
-                window.location.href = '/chat';
+                window.location.href = '/chat?conversationId=' + convData.id;
             } catch (err) {
                 console.error('begin.js - Erreur:', err);
             }

@@ -1885,7 +1885,8 @@ transition: gap 0.3s ease;
 }
 
 .message-bubble.ai,
-.message-bubble.bot {
+.message-bubble.bot,
+.message-bubble.assistant {
     align-self: flex-start;
     background: #f5f5f5;
     color: #1a1a1a;

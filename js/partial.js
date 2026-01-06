@@ -311,22 +311,22 @@ function addMessageBubble(message, sender = 'user') {
     chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
-// event pour envoyer des messages
-if (document.getElementById('send-btn')) {
-    document.getElementById('send-btn').addEventListener('click', () => {
-        const input = document.getElementById('chat-input');
-        const message = input.value.trim();
-        if (message) {
-            addMessageBubble(message, 'user');
-            input.value = '';
-        }
-    });
-    document.getElementById('chat-input').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            document.getElementById('send-btn').click();
-        }
-    });
-}
+// event pour envoyer des messages ( géré actuellement par socket.io )
+// if (document.getElementById('send-btn')) {
+//     document.getElementById('send-btn').addEventListener('click', () => {
+//         const input = document.getElementById('chat-input');
+//         const message = input.value.trim();
+//         if (message) {
+//             addMessageBubble(message, 'user');
+//             input.value = '';
+//         }
+//     });
+//     document.getElementById('chat-input').addEventListener('keydown', (e) => {
+//         if (e.key === 'Enter') {
+//             document.getElementById('send-btn').click();
+//         }
+//     });
+// }
 
 // Charger les discussions de l'utilisateur dans la sidebar
 async function loadDiscussions() {
