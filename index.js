@@ -221,6 +221,50 @@ app.get('/conversations/:conversationId/messages', async (req, res) => {
     }
 });
 
+// Supprimer une conversation
+app.delete('/conversations/:id', authenticateToken, async (req, res) => {
+    try {
+        const conversationId = req.params.id;
+        const userId = req.user.id;
+
+        const client = await pool.connect();
+
+        try {
+            // Vérifier que la conversation appartient à l'utilisateur
+            const conversationResult = await client.query(
+                'SELECT * FROM conversations WHERE id = $1 AND user_id = $2',
+                [conversationId, userId]
+            );
+
+            if (conversationResult.rows.length === 0) {
+                client.release();
+                return res.status(404).json({ error: 'Conversation non trouvée ou non autorisée' });
+            }
+
+            // Supprimer les messages associés
+            await client.query(
+                'DELETE FROM messages WHERE conversation_id = $1',
+                [conversationId]
+            );
+
+            // Supprimer la conversation
+            await client.query(
+                'DELETE FROM conversations WHERE id = $1',
+                [conversationId]
+            );
+
+            client.release();
+            res.json({ success: true, message: 'Conversation supprimée' });
+        } catch (error) {
+            client.release();
+            throw error;
+        }
+    } catch (error) {
+        console.error('Erreur suppression conversation:', error);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
 // Créer serveur HTTP et Socket.io
 const server = http.createServer(app);
 const io = new Server(server, {

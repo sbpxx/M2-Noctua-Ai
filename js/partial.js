@@ -374,7 +374,32 @@ async function loadDiscussions() {
         conversations.forEach(conv => {
             const li = document.createElement('li');
             li.className = 'menu-item discussion';
-            li.innerHTML = `<a href="#"><span class="menu-title">${conv.title}</span></a>`;
+            li.innerHTML = `
+                <a href="#" class="discussion-link">
+                    <span class="menu-title">${conv.title}</span>
+                </a>
+                <button class="discussion-options-btn" data-conversation-id="${conv.id}">
+                    <i class="ri-more-fill"></i>
+                </button>
+                <div class="discussion-dropdown-menu" data-conversation-id="${conv.id}">
+                    <a href="#" class="dropdown-item" data-action="edit">
+                        <i class="ri-edit-line"></i>
+                        <span>Modifier le titre</span>
+                    </a>
+                    <a href="#" class="dropdown-item" data-action="archive">
+                        <i class="ri-archive-line"></i>
+                        <span>Archiver la conversation</span>
+                    </a>
+                    <a href="#" class="dropdown-item" data-action="share">
+                        <i class="ri-share-line"></i>
+                        <span>Partager la conversation</span>
+                    </a>
+                    <a href="#" class="dropdown-item" data-action="delete">
+                        <i class="ri-delete-bin-line"></i>
+                        <span>Supprimer la conversation</span>
+                    </a>
+                </div>
+            `;
             discussionsList.appendChild(li);
         });
     } catch (err) {
@@ -394,6 +419,67 @@ async function safeLoadDiscussions() {
     isLoadingDiscussions = false;
 }
 
+// Fonction pour gérer le toggle du menu d'options
+function toggleDiscussionMenu(conversationId) {
+    const menu = document.querySelector(`.discussion-dropdown-menu[data-conversation-id="${conversationId}"]`);
+    const button = document.querySelector(`.discussion-options-btn[data-conversation-id="${conversationId}"]`);
+    if (!menu || !button) return;
+
+    // Fermer tous les autres menus
+    document.querySelectorAll('.discussion-dropdown-menu.show').forEach(m => {
+        if (m !== menu) m.classList.remove('show');
+    });
+
+    // Si on ouvre le menu, calculer sa position
+    if (!menu.classList.contains('show')) {
+        const buttonRect = button.getBoundingClientRect();
+        const sidebar = document.getElementById('sidebar');
+        const sidebarRect = sidebar.getBoundingClientRect();
+
+        // Positionner le menu à droite de la sidebar
+        menu.style.left = `${sidebarRect.right + 8}px`;
+        menu.style.top = `${buttonRect.top + buttonRect.height / 2}px`;
+        menu.style.transform = 'translateY(-50%)';
+    }
+
+    menu.classList.toggle('show');
+}
+
+// Fonction pour supprimer une conversation
+async function deleteConversation(conversationId) {
+    const token = sessionStorage.getItem('authToken');
+
+    if (!token) {
+        showError('Vous devez être connecté pour supprimer une conversation');
+        return;
+    }
+
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette conversation ?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/conversations/${conversationId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            showSuccess('Conversation supprimée avec succès');
+            // Recharger la liste des discussions
+            await loadDiscussions();
+        } else {
+            showError('Erreur lors de la suppression de la conversation');
+        }
+    } catch (error) {
+        console.error('Erreur:', error);
+        showError('Erreur lors de la suppression de la conversation');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(safeLoadDiscussions, 100);
 });
@@ -401,4 +487,50 @@ document.addEventListener('DOMContentLoaded', function() {
 // Recharger les discussions quand on navigue vers la page
 window.addEventListener('pageshow', function() {
     setTimeout(safeLoadDiscussions, 100);
+});
+
+// Event delegation pour les boutons d'options et les actions
+document.addEventListener('click', function(e) {
+    // Gérer le clic sur le bouton d'options
+    const optionsBtn = e.target.closest('.discussion-options-btn');
+    if (optionsBtn) {
+        e.stopPropagation();
+        const conversationId = optionsBtn.dataset.conversationId;
+        toggleDiscussionMenu(conversationId);
+        return;
+    }
+
+    // Gérer le clic sur une action du menu
+    const dropdownItem = e.target.closest('.discussion-dropdown-menu .dropdown-item');
+    if (dropdownItem) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const menu = dropdownItem.closest('.discussion-dropdown-menu');
+        const conversationId = menu.dataset.conversationId;
+        const action = dropdownItem.dataset.action;
+
+        // Fermer le menu
+        menu.classList.remove('show');
+
+        // Exécuter l'action
+        if (action === 'delete') {
+            deleteConversation(conversationId);
+        } else if (action === 'edit') {
+            showError('Fonctionnalité en développement');
+        } else if (action === 'archive') {
+            showError('Fonctionnalité en développement');
+        } else if (action === 'share') {
+            showError('Fonctionnalité en développement');
+        }
+        return;
+    }
+
+    // Fermer tous les menus si on clique ailleurs
+    const clickedInsideMenu = e.target.closest('.discussion-dropdown-menu');
+    if (!clickedInsideMenu) {
+        document.querySelectorAll('.discussion-dropdown-menu.show').forEach(menu => {
+            menu.classList.remove('show');
+        });
+    }
 });
