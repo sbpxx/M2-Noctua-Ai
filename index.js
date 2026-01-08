@@ -162,6 +162,46 @@ app.get('/protected', authenticateToken, (req, res) => {
     res.json({ message: 'Accès autorisé', user: req.user });
 });
 
+// Route pour changer le mot de passe
+app.post('/change-password', authenticateToken, async (req, res) => {
+    try {
+        const { email, oldPassword, newPassword } = req.body;
+        console.log("Requête reçue pour changer le mot de passe");
+        console.log("Email:", email);
+
+        if (!email || !oldPassword || !newPassword) {
+            return res.status(400).json({ error: 'Tous les champs sont requis' });
+        }
+
+        const client = await pool.connect();
+
+        // Vérifier que l'ancien mot de passe est correct
+        const userCheck = await client.query(
+            'SELECT * FROM "users" WHERE email = $1 AND password = $2',
+            [email, oldPassword]
+        );
+
+        if (userCheck.rows.length === 0) {
+            console.log("Ancien mot de passe incorrect");
+            client.release();
+            return res.status(400).json({ error: 'Ancien mot de passe incorrect' });
+        }
+
+        // Mettre à jour le mot de passe
+        await client.query(
+            'UPDATE "users" SET password = $1 WHERE email = $2',
+            [newPassword, email]
+        );
+
+        console.log("Mot de passe modifié avec succès");
+        client.release();
+        res.json({ message: 'Mot de passe modifié avec succès' });
+    } catch (err) {
+        console.error('Erreur lors du changement de mot de passe:', err.stack);
+        res.status(500).json({ error: 'Erreur lors du changement de mot de passe' });
+    }
+});
+
 // Créer une discussion et stocker le premier message
 app.post('/conversations', async (req, res) => {
     try {

@@ -375,7 +375,7 @@ async function loadDiscussions() {
             const li = document.createElement('li');
             li.className = 'menu-item discussion';
             li.innerHTML = `
-                <a href="#" class="discussion-link">
+                <a href="#" class="discussion-link" data-conversation-id="${conv.id}">
                     <span class="menu-title">${conv.title}</span>
                 </a>
                 <button class="discussion-options-btn" data-conversation-id="${conv.id}">
@@ -491,6 +491,19 @@ window.addEventListener('pageshow', function() {
 
 // Event delegation pour les boutons d'options et les actions
 document.addEventListener('click', function(e) {
+    // Gérer le clic sur un lien de discussion
+    const discussionLink = e.target.closest('.discussion-link');
+    if (discussionLink) {
+        e.preventDefault();
+        const conversationId = discussionLink.dataset.conversationId;
+        if (conversationId) {
+            // Stocker l'ID de la conversation et rediriger vers /chat
+            localStorage.setItem('currentConversationId', conversationId);
+            window.location.href = `/chat?conversationId=${conversationId}`;
+        }
+        return;
+    }
+
     // Gérer le clic sur le bouton d'options
     const optionsBtn = e.target.closest('.discussion-options-btn');
     if (optionsBtn) {
