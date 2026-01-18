@@ -8,12 +8,33 @@ let isConnected = false;
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('[CHAT.JS] DOM Content Loaded');
 
-    // Récupère Id des conversations depuis l'url de la room
+    // is logged?
+    const token = sessionStorage.getItem('authToken');
+    const isGuest = !token;
+
     const urlParams = new URLSearchParams(window.location.search);
     currentConversationId = urlParams.get('conversationId') || localStorage.getItem('currentConversationId');
 
+    // Vérification session invité
+    if (isGuest) {
+        const guestConvId = sessionStorage.getItem('guestConversationId');
+
+        // redirection begin si pas de session
+        if (!guestConvId) {
+            console.log('[CHAT.JS] Guest sans session, redirection /begin');
+            window.location.href = '/begin';
+            return;
+        }
+
+        if (currentConversationId !== guestConvId) {
+            console.log('[CHAT.JS] ID mismatch, redirection /begin');
+            clearGuestSession();
+            window.location.href = '/begin';
+            return;
+        }
+    }
+
     if (!currentConversationId) {
-        // Nouvelle conversation checker
         const newConvString = localStorage.getItem('newConversation');
         if (newConvString) {
             const newConv = JSON.parse(newConvString);
@@ -23,12 +44,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     console.log('[CHAT.JS] Conversation ID:', currentConversationId);
+    console.log('[CHAT.JS] Mode:', isGuest ? 'INVITÉ' : 'AUTHENTIFIÉ');
 
     if (currentConversationId) {
         await loadConversationMessages(currentConversationId);
         socket.emit('join-conversation', currentConversationId);
     } else {
         console.warn('[CHAT.JS] Pas de conversation ID trouvé!');
+        window.location.href = '/begin';
     }
 
     setupEventListeners();
@@ -87,14 +110,14 @@ async function loadConversationMessages(conversationId) {
             console.log('[CHAT.JS] Premier message détecté, envoi automatique à l\'IA...');
             const token = sessionStorage.getItem('authToken');
             const email = sessionStorage.getItem('userEmail');
+            const isGuest = !token;
 
-            if (token && email) {
-                socket.emit('send-message', {
-                    conversationId: conversationId,
-                    userId: email,
-                    message: messages[0].content
-                });
-            }
+            socket.emit('send-message', {
+                conversationId: conversationId,
+                userId: isGuest ? null : email,
+                message: messages[0].content,
+                isGuest: isGuest
+            });
         }
     } catch (error) {
         console.error('Error loading messages:', error);
@@ -166,20 +189,26 @@ function sendMessage() {
         return;
     }
 
-    // Get user ID
+    // connecté ou non
     const token = sessionStorage.getItem('authToken');
     const email = sessionStorage.getItem('userEmail');
+    const isGuest = !token;
 
-    if (!token || !email) {
-        showError('Veuillez vous connecter', 3000);
+    // Authentifiés : vérifier token valide
+    if (!isGuest && (!token || !email)) {
+        showError('Session expirée, veuillez vous reconnecter', 3000);
+        setTimeout(() => {
+            window.location.href = '/begin';
+        }, 2000);
         return;
     }
 
     // Emit message au server
     socket.emit('send-message', {
         conversationId: currentConversationId,
-        userId: email,
-        message: message
+        userId: isGuest ? null : email,
+        message: message,
+        isGuest: isGuest
     });
     chatInput.value = '';
 }

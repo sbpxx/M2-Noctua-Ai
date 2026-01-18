@@ -32,7 +32,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
             }
-            // sinon, afficher le modal de connexion
             showLoginModal();
         });
     }

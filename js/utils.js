@@ -346,3 +346,30 @@ function initPasswordChange() {
         });
     }
 }
+
+// gestion invité 
+
+function isGuestUser() {
+    const token = sessionStorage.getItem('authToken');
+    return !token || token === null;
+}
+
+function getGuestSessionId() {
+    let guestId = sessionStorage.getItem('guestSessionId');
+    if (!guestId) {
+        guestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        sessionStorage.setItem('guestSessionId', guestId);
+    }
+    return guestId;
+}
+
+function clearGuestSession() {
+    sessionStorage.removeItem('guestSessionId');
+    sessionStorage.removeItem('guestConversationId');
+    localStorage.removeItem('currentConversationId');
+}
+
+function isGuestConversation(conversationId) {
+    const guestConvId = sessionStorage.getItem('guestConversationId');
+    return guestConvId === conversationId;
+}

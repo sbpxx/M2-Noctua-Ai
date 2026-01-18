@@ -3,8 +3,8 @@ version: '3.8'
 services:
   ollama:
     build:
-      context: .
-      dockerfile: Dockerfile.ollama
+      context: ..
+      dockerfile: docker/Dockerfile.ollama
     container_name: noctua-ollama
     ports:
       - "11434:11434"

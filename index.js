@@ -206,12 +206,19 @@ app.post('/change-password', authenticateToken, async (req, res) => {
 app.post('/conversations', async (req, res) => {
     try {
         const { user_id, first_message } = req.body;
+
+        // Validation du message
+        if (!first_message || !first_message.trim()) {
+            return res.status(400).json({ error: 'Message requis' });
+        }
+
         const client = await pool.connect();
 
         const title = first_message.substring(0, 50);
+        // Accepter NULL pour les invités
         const conversationResult = await client.query(
             'INSERT INTO conversations (user_id, title, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *',
-            [user_id, title]
+            [user_id || null, title]
         );
 
         const conversation = conversationResult.rows[0];
@@ -327,7 +334,7 @@ io.on('connection', (socket) => {
     // Gérer l'envoi de messages
     socket.on('send-message', async (data) => {
         try {
-            const { conversationId, userId, message } = data;
+            const { conversationId, userId, message, isGuest } = data;
 
             if (!conversationId || !message) {
                 socket.emit('error', { message: 'Données invalides' });
@@ -337,6 +344,27 @@ io.on('connection', (socket) => {
             const client = await pool.connect();
 
             try {
+                // Vérifier que la conversation existe
+                const convCheck = await client.query(
+                    'SELECT id, user_id FROM conversations WHERE id = $1',
+                    [conversationId]
+                );
+
+                if (convCheck.rows.length === 0) {
+                    socket.emit('error', { message: 'Conversation non trouvée' });
+                    client.release();
+                    return;
+                }
+
+                const conversation = convCheck.rows[0];
+
+                // non accès aux conv
+                if (conversation.user_id !== null && !userId) {
+                    socket.emit('error', { message: 'Authentification requise' });
+                    client.release();
+                    return;
+                }
+
                 // Vérifier si le message existe déjà 
                 const existingMessage = await client.query(
                     'SELECT id FROM messages WHERE conversation_id = $1 AND sender = $2 AND content = $3 ORDER BY created_at DESC LIMIT 1',
