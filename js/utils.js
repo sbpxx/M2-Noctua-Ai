@@ -244,4 +244,141 @@ function initSettingsNavigation() {
             }
         });
     });
+
+    // Charger l'email de l'utilisateur dans les paramètres
+    loadUserEmail();
+
+    // Gérer l'affichage des champs de mot de passe
+    initPasswordChange();
+}
+
+// fonction pour charger l'email de l'utilisateur
+async function loadUserEmail() {
+    const userEmail = sessionStorage.getItem('userEmail');
+    const emailInput = document.getElementById('profile-email');
+
+    if (emailInput && userEmail) {
+        emailInput.value = userEmail;
+    }
+}
+
+// fonction pour gérer le changement de mot de passe
+function initPasswordChange() {
+    const changePasswordBtn = document.getElementById('change-password-btn');
+    const passwordFields = document.getElementById('password-fields');
+    const confirmPasswordBtn = document.getElementById('confirm-password-btn');
+    const passwordError = document.getElementById('password-error');
+
+    if (changePasswordBtn && passwordFields) {
+        changePasswordBtn.addEventListener('click', () => {
+            // Afficher/masquer les champs de mot de passe
+            if (passwordFields.style.display === 'none') {
+                passwordFields.style.display = 'block';
+                changePasswordBtn.textContent = 'Annuler';
+            } else {
+                passwordFields.style.display = 'none';
+                changePasswordBtn.textContent = 'Modifier le mot de passe';
+                // Réinitialiser les champs
+                document.getElementById('old-password').value = '';
+                document.getElementById('new-password').value = '';
+                document.getElementById('confirm-password').value = '';
+                passwordError.style.display = 'none';
+            }
+        });
+    }
+
+    if (confirmPasswordBtn) {
+        confirmPasswordBtn.addEventListener('click', async () => {
+            const oldPassword = document.getElementById('old-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            // Vérifier que tous les champs sont remplis
+            if (!oldPassword || !newPassword || !confirmPassword) {
+                passwordError.textContent = 'Veuillez remplir tous les champs';
+                passwordError.style.display = 'block';
+                return;
+            }
+
+            // Vérifier que les deux mots de passe correspondent
+            if (newPassword !== confirmPassword) {
+                passwordError.textContent = 'Les mots de passe ne correspondent pas';
+                passwordError.style.display = 'block';
+                return;
+            }
+
+            // Vérifier la longueur du mot de passe
+            if (newPassword.length < 8) {
+                passwordError.textContent = 'Le mot de passe doit contenir au moins 8 caractères';
+                passwordError.style.display = 'block';
+                return;
+            }
+
+            // Envoyer la requête au backend
+            try {
+                const token = sessionStorage.getItem('authToken');
+                const userEmail = sessionStorage.getItem('userEmail');
+
+                const response = await fetch('/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        email: userEmail,
+                        oldPassword: oldPassword,
+                        newPassword: newPassword
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess('Mot de passe modifié avec succès', 3000);
+                    // Réinitialiser les champs
+                    document.getElementById('old-password').value = '';
+                    document.getElementById('new-password').value = '';
+                    document.getElementById('confirm-password').value = '';
+                    passwordError.style.display = 'none';
+                    passwordFields.style.display = 'none';
+                    changePasswordBtn.textContent = 'Modifier le mot de passe';
+                } else {
+                    passwordError.textContent = data.error || 'Erreur lors du changement de mot de passe';
+                    passwordError.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                passwordError.textContent = 'Erreur lors du changement de mot de passe';
+                passwordError.style.display = 'block';
+            }
+        });
+    }
+}
+
+// gestion invité 
+
+function isGuestUser() {
+    const token = sessionStorage.getItem('authToken');
+    return !token || token === null;
+}
+
+function getGuestSessionId() {
+    let guestId = sessionStorage.getItem('guestSessionId');
+    if (!guestId) {
+        guestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        sessionStorage.setItem('guestSessionId', guestId);
+    }
+    return guestId;
+}
+
+function clearGuestSession() {
+    sessionStorage.removeItem('guestSessionId');
+    sessionStorage.removeItem('guestConversationId');
+    localStorage.removeItem('currentConversationId');
+}
+
+function isGuestConversation(conversationId) {
+    const guestConvId = sessionStorage.getItem('guestConversationId');
+    return guestConvId === conversationId;
 }

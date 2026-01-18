@@ -1464,7 +1464,7 @@ main {
 
 .sidebar {
     color: var(--text-color);
-    overflow-x: hidden;
+    overflow-x: visible;
     position: fixed;
     left: 0;
     top: 0;
@@ -1553,7 +1553,7 @@ transition: gap 0.3s ease;
 .sidebar .sidebar-content-discussion {
     flex: 1;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: visible;
     display: flex;
     flex-direction: column;
     scrollbar-width: none; /* Firefox */
@@ -1862,6 +1862,103 @@ transition: gap 0.3s ease;
     border: none;
 }
 
+/* Discussion item avec bouton options */
+.menu-item.discussion {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding-right: 0;
+    overflow: visible !important;
+}
+
+.menu-item.discussion .discussion-link {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Bouton d'options */
+.discussion-options-btn {
+    position: absolute;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.menu-item.discussion:hover .discussion-options-btn {
+    opacity: 1;
+}
+
+.discussion-options-btn:hover {
+    background: rgba(102, 126, 234, 0.2);
+    color: #ffffff;
+}
+
+.discussion-options-btn i {
+    font-size: 16px;
+}
+
+/* Menu déroulant de la discussion */
+.discussion-dropdown-menu {
+    position: fixed;
+    min-width: 200px;
+    background: linear-gradient(135deg, rgba(30, 30, 46, 0.98) 0%, rgba(24, 24, 37, 0.98) 100%);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    overflow: hidden;
+    z-index: 10000;
+}
+
+.discussion-dropdown-menu.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.discussion-dropdown-menu .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.discussion-dropdown-menu .dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.discussion-dropdown-menu .dropdown-item:hover {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+}
+
+.discussion-dropdown-menu .dropdown-item i {
+    font-size: 16px;
+}
+
+/* Cache en mode collapsed */
+.sidebar.collapsed .discussion-options-btn,
+.sidebar.collapsed .discussion-dropdown-menu {
+    display: none;
+}
+
 /* Section: Chat Area */
 .chat-main {
     
@@ -1949,7 +2046,8 @@ transition: gap 0.3s ease;
 }
 
 .message-bubble.ai,
-.message-bubble.bot {
+.message-bubble.bot,
+.message-bubble.assistant {
     align-self: flex-start;
     background: #f5f5f5;
     color: #1a1a1a;
