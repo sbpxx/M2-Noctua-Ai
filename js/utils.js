@@ -115,6 +115,7 @@ function updateUserButton(isConnected, userName) {
     } else {
         userText.textContent = 'Connectez-vous';
         userIcon.className = 'ri-user-line';
+
         userBtn.onclick = () => {
             const loginModal = document.getElementById('loginModal');
             if (loginModal) {
@@ -148,6 +149,7 @@ function handleLogout() {
     sessionStorage.removeItem('authToken');
     sessionStorage.removeItem('userName');
     sessionStorage.removeItem('userEmail');
+    sessionStorage.removeItem('userAdmin');
 
     // Fermer le menu déroulant
     const dropdownMenu = document.getElementById('user-dropdown-menu');
@@ -198,9 +200,16 @@ document.addEventListener('DOMContentLoaded', () => {
 function openSettingsModal() {
     const settingsModal = document.getElementById('settingsModal');
     const dropdownMenu = document.getElementById('user-dropdown-menu');
+    const adminMenu = document.getElementById('settings-admin-menu');
 
     if (settingsModal) {
         settingsModal.style.display = 'flex';
+    }
+
+    // Afficher/masquer le menu Administration selon le statut admin
+    const isAdmin = sessionStorage.getItem('userAdmin') === 'true';
+    if (adminMenu) {
+        adminMenu.style.display = isAdmin ? 'flex' : 'none';
     }
 
     // Fermer le menu déroulant

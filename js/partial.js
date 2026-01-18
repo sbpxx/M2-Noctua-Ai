@@ -229,6 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     sessionStorage.setItem('userName', userData.name);
                     sessionStorage.setItem('userEmail', userData.email);
+                    sessionStorage.setItem('userAdmin', userData.admin ? 'true' : 'false');
 
                     showSuccess('Connexion réussie. Bienvenue!', 1500);
 

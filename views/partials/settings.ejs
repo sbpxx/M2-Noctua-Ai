@@ -34,6 +34,10 @@
                         <i class="ri-information-line"></i>
                         <span>À propos</span>
                     </a>
+                    <a href="#" class="settings-menu-item admin-only" data-section="admin" id="settings-admin-menu" style="display: none;">
+                        <i class="ri-admin-line"></i>
+                        <span>Administration</span>
+                    </a>
                 </nav>
             </div>
 
@@ -157,6 +161,51 @@
                                 <span>Conditions d'utilisation</span>
                             </a>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Administration (visible uniquement pour les admins) -->
+                <div class="settings-section" id="section-admin">
+                    <h3 class="settings-section-title">Administration</h3>
+                    <p class="settings-section-subtitle">Gestion du système et des services</p>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Serveur Mistral LLM</label>
+                        <p class="settings-description">Contrôlez le serveur d'inférence Mistral</p>
+                        <div class="admin-server-controls">
+                            <div class="server-status" id="mistral-status">
+                                <span class="status-indicator offline"></span>
+                                <span class="status-text">Statut: Inconnu</span>
+                            </div>
+                            <div class="server-buttons">
+                                <button class="settings-btn-primary" id="start-mistral-btn" type="button">
+                                    <i class="ri-play-fill"></i>
+                                    <span>Démarrer</span>
+                                </button>
+                                <button class="settings-btn-danger" id="stop-mistral-btn" type="button">
+                                    <i class="ri-stop-fill"></i>
+                                    <span>Arrêter</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Gestion des utilisateurs</label>
+                        <p class="settings-description">Voir et gérer les utilisateurs du système</p>
+                        <button class="settings-btn-secondary" id="manage-users-btn" type="button">
+                            <i class="ri-user-search-line"></i>
+                            <span>Gérer les utilisateurs</span>
+                        </button>
+                    </div>
+
+                    <div class="settings-group">
+                        <label class="settings-label">Logs système</label>
+                        <p class="settings-description">Consultez les journaux d'activité</p>
+                        <button class="settings-btn-secondary" id="view-logs-btn" type="button">
+                            <i class="ri-file-list-3-line"></i>
+                            <span>Voir les logs</span>
+                        </button>
                     </div>
                 </div>
             </div>
