@@ -27,6 +27,25 @@
                 <button id="send-btn">Envoyer</button>
             </div>
         </div>
+
+        <!-- Sidebar Sources -->
+        <aside id="sources-sidebar" class="sources-sidebar">
+            <div class="sources-header">
+                <h3><i class="ri-book-open-line"></i> Sources</h3>
+                <button id="close-sources-btn" class="close-sources-btn">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+            <div id="sources-container" class="sources-container">
+                <p class="sources-empty">Les sources citées apparaîtront ici.</p>
+            </div>
+        </aside>
+
+        <!-- Bouton pour ouvrir les sources -->
+        <button id="open-sources-btn" class="open-sources-btn">
+            <i class="ri-book-open-line"></i>
+            <span class="sources-count" id="sources-count">0</span>
+        </button>
     </main>
 
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>

@@ -11,7 +11,7 @@ const jwt = require('jsonwebtoken');
 
 const secretKey = process.env.JWT_SECRET || 'fallback-secret-key'; // Clé secrète pour signer les JWT
 // API RAG (remplace Ollama)
-const RAG_API_URL = 'http://127.0.0.1:5000/api/chat';
+const RAG_API_URL = process.env.RAG_API_URL || 'http://127.0.0.1:5000/api/chat';
 const RAG_MODEL = 'rag-mistral';
 
 // Configurer le moteur de templates EJS
@@ -488,6 +488,7 @@ io.on('connection', (socket) => {
 
                 // Appeler l'API RAG
                 let aiMessage;
+                let aiSources = [];
                 try {
                     console.log('Calling RAG API...');
                     const ragResponse = await axios.post(RAG_API_URL, {
@@ -499,17 +500,19 @@ io.on('connection', (socket) => {
                     });
 
                     aiMessage = ragResponse.data.message.content;
-                    console.log('RAG response received');
+                    aiSources = ragResponse.data.sources || [];
+                    console.log('RAG response received with', aiSources.length, 'sources');
 
                 } catch (ragError) {
                     console.error('RAG API error:', ragError.message);
                     aiMessage = "Désolé, le service IA est temporairement indisponible. Veuillez réessayer dans quelques instants.";
+                    aiSources = [];
                 }
 
-                // Stocker la réponse IA
+                // Stocker la réponse IA avec les sources
                 await client.query(
-                    'INSERT INTO messages (conversation_id, sender, content, created_at) VALUES ($1, $2, $3, NOW())',
-                    [conversationId, 'bot', aiMessage]
+                    'INSERT INTO messages (conversation_id, sender, content, sources, created_at) VALUES ($1, $2, $3, $4, NOW())',
+                    [conversationId, 'bot', aiMessage, JSON.stringify(aiSources)]
                 );
 
                 // Mettre à jour la conversation à nouveau
@@ -518,10 +521,11 @@ io.on('connection', (socket) => {
                     [conversationId]
                 );
 
-                // Émettre la réponse IA à la room
+                // Émettre la réponse IA à la room avec les sources
                 io.to(`conversation-${conversationId}`).emit('receive-message', {
                     sender: 'bot',
                     content: aiMessage,
+                    sources: aiSources,
                     created_at: new Date()
                 });
 

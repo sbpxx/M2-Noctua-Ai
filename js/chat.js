@@ -4,6 +4,8 @@ console.log('[CHAT.JS] Socket.io initialisé');
 
 let currentConversationId = null;
 let isConnected = false;
+let isWaitingForResponse = false;
+let allSources = [];
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('[CHAT.JS] DOM Content Loaded');
@@ -71,13 +73,31 @@ socket.on('disconnect', () => {
 });
 
 socket.on('receive-message', (data) => {
-    hideTypingIndicator();
-    displayMessage(data.sender, data.content);
+    // Remplacer les messages d'erreur techniques
+
+    let content = data.content;
+    if (content && (content.includes('[ERREUR RÉSEAU]') || content.includes('Connection aborted') || content.includes('ConnectionResetError'))) {
+        content = "Désolé, le service IA est temporairement indisponible. Veuillez réessayer dans quelques instants.";
+    }
+
+    // Passer les sources si disponibles
+    displayMessage(data.sender, content, true, data.sources || []);
+
+    // Afficher l'indicateur après le message utilisateur, le cacher après la réponse IA
+    if (data.sender === 'user') {
+        showTypingIndicator();
+    } else {
+        hideTypingIndicator();
+        // Réactiver les contrôles après réception de la réponse du bot
+        enableSendControls();
+    }
 });
 
 socket.on('error', (error) => {
     console.error('Socket error:', error);
     hideTypingIndicator();
+    // Réactiver les contrôles en cas d'erreur
+    enableSendControls();
     showError('Une erreur est survenue lors de l\'envoi du message', 3000);
 });
 
@@ -96,16 +116,25 @@ async function loadConversationMessages(conversationId) {
 
         const messages = await response.json();
 
-        // Clear existing static messages ( plus besoin ? à vérifier )
+        // Clear existing messages et sources
         const chatContainer = document.getElementById('chat-container');
         chatContainer.innerHTML = '';
+        allSources = [];
+        const sourcesContainer = document.getElementById('sources-container');
+        if (sourcesContainer) {
+            sourcesContainer.innerHTML = '<p class="sources-empty">Les sources citées apparaîtront ici.</p>';
+        }
 
-        // Display des messages
+        // Display des messages avec leurs sources
         messages.forEach(message => {
-            displayMessage(message.sender, message.content, false);
+            const sources = message.sources || [];
+            displayMessage(message.sender, message.content, false, sources);
         });
 
         chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        // Mettre à jour le bouton sources après chargement
+        updateSourcesButton();
 
         // déclance une réponse de l'ia au début de la conversation
         if (messages.length === 1 && messages[0].sender === 'user') {
@@ -113,6 +142,9 @@ async function loadConversationMessages(conversationId) {
             const token = sessionStorage.getItem('authToken');
             const email = sessionStorage.getItem('userEmail');
             const isGuest = !token;
+
+            // Désactiver les contrôles pendant l'attente de la première réponse
+            disableSendControls();
 
             socket.emit('send-message', {
                 conversationId: conversationId,
@@ -129,7 +161,7 @@ async function loadConversationMessages(conversationId) {
     }
 }
 
-function displayMessage(sender, content, shouldScroll = true) {
+function displayMessage(sender, content, shouldScroll = true, serverSources = []) {
     const chatContainer = document.getElementById('chat-container');
 
     const bubble = document.createElement('div');
@@ -137,7 +169,20 @@ function displayMessage(sender, content, shouldScroll = true) {
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
-    contentDiv.textContent = content;
+
+    // Pour les messages du bot, parser les sources
+    if (sender === 'bot' || sender === 'assistant' || sender === 'ai') {
+        const { html } = parseSourcesFromContent(content);
+        contentDiv.innerHTML = html;
+
+        // Utiliser les sources du serveur si disponibles
+        if (serverSources && serverSources.length > 0) {
+            serverSources.forEach(source => addSourceToSidebar(source));
+            updateSourcesButton();
+        }
+    } else {
+        contentDiv.textContent = content;
+    }
 
     bubble.appendChild(contentDiv);
     chatContainer.appendChild(bubble);
@@ -175,9 +220,48 @@ function setupEventListeners() {
     }
 }
 
+// Désactiver les contrôles d'envoi
+function disableSendControls() {
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+
+    if (chatInput) {
+        chatInput.disabled = true;
+        chatInput.placeholder = 'En attente de la réponse...';
+    }
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.classList.add('disabled');
+    }
+    isWaitingForResponse = true;
+}
+
+// Réactiver les contrôles d'envoi
+function enableSendControls() {
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+
+    if (chatInput) {
+        chatInput.disabled = false;
+        chatInput.placeholder = 'Écrivez votre message...';
+    }
+    if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.classList.remove('disabled');
+    }
+    isWaitingForResponse = false;
+}
+
 // Send message via Socket.io
 function sendMessage() {
     console.log('[CHAT.JS] sendMessage appelée');
+
+    // Bloquer si on attend déjà une réponse
+    if (isWaitingForResponse) {
+        console.log('[CHAT.JS] En attente de réponse, envoi bloqué');
+        return;
+    }
+
     const chatInput = document.getElementById('chat-input');
     const message = chatInput.value.trim();
 
@@ -208,6 +292,9 @@ function sendMessage() {
         return;
     }
 
+    // Désactiver les contrôles pendant l'attente
+    disableSendControls();
+
     // Emit message au server
     socket.emit('send-message', {
         conversationId: currentConversationId,
@@ -216,9 +303,6 @@ function sendMessage() {
         isGuest: isGuest
     });
     chatInput.value = '';
-
-    // Afficher l'animation de chargement
-    showTypingIndicator();
 }
 
 function showTypingIndicator() {
@@ -240,3 +324,150 @@ function hideTypingIndicator() {
         indicator.remove();
     }
 }
+
+// Gestion des sources
+
+// Parser les sources du contenu du message
+function parseSourcesFromContent(content) {
+    // Regex pour capturer [Source 1,2,3] ou [Source 1] ou [Source 1, 2, 3]
+    const sourceRegex = /\[Source\s*([\d,\s]+)\]/gi;
+    const sources = [];
+    const sourceNumbers = new Set();
+
+    // Extraire tous les numéros de sources uniques
+    let match;
+    while ((match = sourceRegex.exec(content)) !== null) {
+        // Séparer les numéros (ex: "1,2,3" ou "1, 2, 3")
+        const nums = match[1].split(',').map(n => n.trim()).filter(n => n);
+        nums.forEach(num => sourceNumbers.add(num));
+    }
+
+    // Créer les objets sources
+    sourceNumbers.forEach(num => {
+        sources.push({
+            id: `source-${Date.now()}-${num}`,
+            number: num,
+            title: `Source ${num}`,
+            excerpt: `Document référencé dans la réponse`
+        });
+    });
+
+    // Remplacer les références par des spans cliquables
+    const html = escapeHtml(content).replace(
+        /\[Source\s*([\d,\s]+)\]/gi,
+        (match, numsStr) => {
+            const nums = numsStr.split(',').map(n => n.trim()).filter(n => n);
+            return nums.map(num =>
+                `<span class="source-ref" data-source="${num}" onclick="highlightSource(${num})">[${num}]</span>`
+            ).join(' ');
+        }
+    );
+
+    return { html, sources };
+}
+
+// Échapper le HTML pour éviter les injections
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Ajouter une source à la sidebar
+function addSourceToSidebar(source) {
+    // Vérifier si la source existe déjà (par id)
+    const sourceId = source.id || source.number;
+    const existingSource = allSources.find(s => (s.id || s.number) === sourceId);
+    if (existingSource) return;
+
+    allSources.push(source);
+
+    const sourcesContainer = document.getElementById('sources-container');
+
+    // Supprimer le message "vide" si présent
+    const emptyMsg = sourcesContainer.querySelector('.sources-empty');
+    if (emptyMsg) emptyMsg.remove();
+
+    // Extraire les infos de la source
+    const title = source.title || `Source ${sourceId}`;
+    const excerpt = source.excerpt || 'Document référencé dans la réponse';
+    const url = source.url || '';
+
+    // Créer la carte source
+    const card = document.createElement('div');
+    card.className = 'source-card';
+    card.id = `source-card-${sourceId}`;
+    card.innerHTML = `
+        <div class="source-card-header">
+            <span class="source-badge">Source ${sourceId}</span>
+            <p class="source-title">${escapeHtml(title)}</p>
+        </div>
+        <p class="source-excerpt">${escapeHtml(excerpt)}</p>
+        <div class="source-meta">
+            ${url ? `<a href="${escapeHtml(url)}" target="_blank" class="source-link"><i class="ri-external-link-line"></i> Ouvrir le document</a>` : '<i class="ri-file-text-line"></i> <span>Document universitaire</span>'}
+        </div>
+    `;
+
+    card.addEventListener('click', () => highlightSource(sourceId));
+    sourcesContainer.appendChild(card);
+}
+
+// Mettre à jour le bouton des sources
+function updateSourcesButton() {
+    const btn = document.getElementById('open-sources-btn');
+    const countEl = document.getElementById('sources-count');
+
+    if (allSources.length > 0) {
+        btn.classList.add('visible');
+        countEl.textContent = allSources.length;
+    } else {
+        btn.classList.remove('visible');
+    }
+}
+
+// Mettre en évidence une source
+function highlightSource(sourceNumber) {
+    // Ouvrir la sidebar
+    openSourcesSidebar();
+
+    // Scroll vers la source et la mettre en évidence
+    const card = document.getElementById(`source-card-${sourceNumber}`);
+    if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.style.borderColor = '#7A73D1';
+        card.style.boxShadow = '0 4px 16px rgba(122, 115, 209, 0.3)';
+
+        setTimeout(() => {
+            card.style.borderColor = '';
+            card.style.boxShadow = '';
+        }, 2000);
+    }
+}
+
+// Ouvrir la sidebar des sources
+function openSourcesSidebar() {
+    const sidebar = document.getElementById('sources-sidebar');
+    sidebar.classList.add('open');
+}
+
+// Fermer la sidebar des sources
+function closeSourcesSidebar() {
+    const sidebar = document.getElementById('sources-sidebar');
+    sidebar.classList.remove('open');
+}
+
+// Initialiser les event listeners pour les sources
+function initSourcesListeners() {
+    const openBtn = document.getElementById('open-sources-btn');
+    const closeBtn = document.getElementById('close-sources-btn');
+
+    if (openBtn) {
+        openBtn.addEventListener('click', openSourcesSidebar);
+    }
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeSourcesSidebar);
+    }
+}
+
+// Appeler l'initialisation au chargement
+document.addEventListener('DOMContentLoaded', initSourcesListeners);
