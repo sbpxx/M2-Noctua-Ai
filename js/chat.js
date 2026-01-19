@@ -71,11 +71,13 @@ socket.on('disconnect', () => {
 });
 
 socket.on('receive-message', (data) => {
+    hideTypingIndicator();
     displayMessage(data.sender, data.content);
 });
 
 socket.on('error', (error) => {
     console.error('Socket error:', error);
+    hideTypingIndicator();
     showError('Une erreur est survenue lors de l\'envoi du message', 3000);
 });
 
@@ -118,6 +120,9 @@ async function loadConversationMessages(conversationId) {
                 message: messages[0].content,
                 isGuest: isGuest
             });
+
+            // Afficher l'animation de chargement
+            showTypingIndicator();
         }
     } catch (error) {
         console.error('Error loading messages:', error);
@@ -211,4 +216,27 @@ function sendMessage() {
         isGuest: isGuest
     });
     chatInput.value = '';
+
+    // Afficher l'animation de chargement
+    showTypingIndicator();
+}
+
+function showTypingIndicator() {
+    hideTypingIndicator(); 
+
+    const chatContainer = document.getElementById('chat-container');
+    const indicator = document.createElement('div');
+    indicator.className = 'typing-indicator';
+    indicator.id = 'typing-indicator';
+    indicator.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+
+    chatContainer.appendChild(indicator);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function hideTypingIndicator() {
+    const indicator = document.getElementById('typing-indicator');
+    if (indicator) {
+        indicator.remove();
+    }
 }

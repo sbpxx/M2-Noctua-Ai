@@ -11,7 +11,7 @@ const jwt = require('jsonwebtoken');
 
 const secretKey = process.env.JWT_SECRET || 'fallback-secret-key'; // Clé secrète pour signer les JWT
 // API RAG (remplace Ollama)
-const RAG_API_URL = 'http://localhost:5000/api/chat';
+const RAG_API_URL = 'http://127.0.0.1:5000/api/chat';
 const RAG_MODEL = 'rag-mistral';
 
 // Configurer le moteur de templates EJS
