@@ -382,3 +382,169 @@ function isGuestConversation(conversationId) {
     const guestConvId = sessionStorage.getItem('guestConversationId');
     return guestConvId === conversationId;
 }
+
+// Admin Panel
+
+// Mettre à jour l'affichage du statut Mistral
+function updateMistralStatus(status) {
+    const statusIndicator = document.querySelector('#mistral-status .status-indicator');
+    const statusText = document.querySelector('#mistral-status .status-text');
+    const startBtn = document.getElementById('start-mistral-btn');
+    const stopBtn = document.getElementById('stop-mistral-btn');
+
+    if (!statusIndicator || !statusText) return;
+
+    statusIndicator.classList.remove('online', 'offline', 'loading');
+
+    switch (status) {
+        case 'running':
+            statusIndicator.classList.add('online');
+            statusText.textContent = 'Statut: En ligne';
+            if (startBtn) startBtn.disabled = true;
+            if (stopBtn) stopBtn.disabled = false;
+            break;
+        case 'stopped':
+            statusIndicator.classList.add('offline');
+            statusText.textContent = 'Statut: Arrêté';
+            if (startBtn) startBtn.disabled = false;
+            if (stopBtn) stopBtn.disabled = true;
+            break;
+        case 'loading':
+            statusIndicator.classList.add('loading');
+            statusText.textContent = 'Statut: Chargement...';
+            if (startBtn) startBtn.disabled = true;
+            if (stopBtn) stopBtn.disabled = true;
+            break;
+        default:
+            statusIndicator.classList.add('offline');
+            statusText.textContent = 'Statut: Inconnu';
+            if (startBtn) startBtn.disabled = false;
+            if (stopBtn) stopBtn.disabled = false;
+    }
+}
+
+// Récupérer le statut de Mistral
+async function getMistralStatus() {
+    const token = sessionStorage.getItem('authToken');
+    if (!token) return;
+
+    updateMistralStatus('loading');
+
+    try {
+        const response = await fetch('/api/admin/mistral/status', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        updateMistralStatus(data.status);
+    } catch (error) {
+        console.error('Erreur récupération statut Mistral:', error);
+        updateMistralStatus('unknown');
+    }
+}
+
+// Flag pour éviter les requêtes multiples
+let mistralActionInProgress = false;
+
+// Démarrer Mistral
+async function startMistral() {
+    if (mistralActionInProgress) return;
+
+    const token = sessionStorage.getItem('authToken');
+    if (!token) return;
+
+    mistralActionInProgress = true;
+    updateMistralStatus('loading');
+
+    try {
+        const response = await fetch('/api/admin/mistral/start', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        if (data.status === 'loading') {
+            // Démarrage en cours, vérifier le statut après 10 secondes
+            showSuccess(data.message, 5000);
+            setTimeout(async () => {
+                await getMistralStatus();
+                mistralActionInProgress = false;
+            }, 10000);
+        } else {
+            if (data.success) {
+                showSuccess(data.message, 3000);
+            } else {
+                showError(data.message, 3000);
+            }
+            updateMistralStatus(data.status);
+            mistralActionInProgress = false;
+        }
+    } catch (error) {
+        console.error('Erreur démarrage Mistral:', error);
+        showError('Erreur lors du démarrage de Mistral', 3000);
+        updateMistralStatus('unknown');
+        mistralActionInProgress = false;
+    }
+}
+
+// Arrêter Mistral
+async function stopMistral() {
+    if (mistralActionInProgress) return;
+
+    const token = sessionStorage.getItem('authToken');
+    if (!token) return;
+
+    mistralActionInProgress = true;
+    updateMistralStatus('loading');
+
+    try {
+        const response = await fetch('/api/admin/mistral/stop', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            showSuccess(data.message, 3000);
+        } else {
+            showError(data.message, 3000);
+        }
+        updateMistralStatus(data.status);
+    } catch (error) {
+        console.error('Erreur arrêt Mistral:', error);
+        showError('Erreur lors de l\'arrêt de Mistral', 3000);
+        updateMistralStatus('unknown');
+    } finally {
+        mistralActionInProgress = false;
+    }
+}
+
+// Initialiser les événements admin
+function initAdminControls() {
+    const startBtn = document.getElementById('start-mistral-btn');
+    const stopBtn = document.getElementById('stop-mistral-btn');
+
+    if (startBtn) {
+        startBtn.addEventListener('click', startMistral);
+    }
+    if (stopBtn) {
+        stopBtn.addEventListener('click', stopMistral);
+    }
+}
+
+// Charger le statut Mistral quand on ouvre la section admin
+document.addEventListener('DOMContentLoaded', () => {
+    initAdminControls();
+
+    // Observer les changements de section dans les paramètres
+    const adminSection = document.getElementById('section-admin');
+    if (adminSection) {
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.target.classList.contains('active')) {
+                    getMistralStatus();
+                }
+            });
+        });
+        observer.observe(adminSection, { attributes: true, attributeFilter: ['class'] });
+    }
+});

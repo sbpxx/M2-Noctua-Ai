@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -8,7 +9,7 @@ const path = require('path');
 const pool = require('./js/libraryBDD'); // Importer le pool de connexions
 const jwt = require('jsonwebtoken');
 
-const secretKey = 'your-256-bit-secret'; // Clé secrète pour signer les JWT
+const secretKey = process.env.JWT_SECRET || 'fallback-secret-key'; // Clé secrète pour signer les JWT
 // API RAG (remplace Ollama)
 const RAG_API_URL = 'http://localhost:5000/api/chat';
 const RAG_MODEL = 'rag-mistral';
@@ -161,6 +162,74 @@ function authenticateToken(req, res, next) {
 // Exemple de route protégée
 app.get('/protected', authenticateToken, (req, res) => {
     res.json({ message: 'Accès autorisé', user: req.user });
+});
+
+// vérification si l'utilisateur est admin
+async function isAdmin(req, res, next) {
+    try {
+        const client = await pool.connect();
+        const result = await client.query(
+            'SELECT admin FROM "users" WHERE id = $1',
+            [req.user.id]
+        );
+        client.release();
+
+        if (result.rows.length === 0 || !result.rows[0].admin) {
+            return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
+        }
+        next();
+    } catch (err) {
+        console.error('Erreur vérification admin:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+}
+
+// Routes Admin pour controle de Mistral
+
+const { exec } = require('child_process');
+const scriptsPath = path.join(__dirname, 'scripts');
+
+// Statut de Mistral
+app.get('/api/admin/mistral/status', authenticateToken, isAdmin, (req, res) => {
+    exec(`${scriptsPath}/status_mistral.sh`, (error, stdout, stderr) => {
+        try {
+            const result = JSON.parse(stdout);
+            res.json(result);
+        } catch (e) {
+            res.json({ success: false, message: 'Erreur de connexion au serveur', status: 'unknown' });
+        }
+    });
+});
+
+// Démarrer Mistral
+app.post('/api/admin/mistral/start', authenticateToken, isAdmin, (req, res) => {
+    console.log('Démarrage Mistral...');
+
+    // Vérifier d'abord si Mistral est déjà en cours
+    exec(`${scriptsPath}/status_mistral.sh`, { timeout: 15000 }, (error, stdout, stderr) => {
+        if (!error && stdout.includes('"running"')) {
+            return res.json({ success: false, message: 'Mistral est déjà en cours d\'exécution', status: 'running' });
+        }
+
+        // Lancer le démarrage en arrière-plan (détaché)
+        const child = exec(`${scriptsPath}/start_mistral.sh`, { timeout: 60000, detached: true });
+        child.unref();
+
+        // Retourner immédiatement
+        res.json({ success: true, message: 'Démarrage de Mistral en cours...', status: 'loading' });
+    });
+});
+
+// Arrêter Mistral
+app.post('/api/admin/mistral/stop', authenticateToken, isAdmin, (req, res) => {
+    exec(`${scriptsPath}/stop_mistral.sh`, { timeout: 30000 }, (error, stdout, stderr) => {
+        try {
+            const result = JSON.parse(stdout);
+            res.json(result);
+        } catch (e) {
+            res.json({ success: false, message: 'Erreur lors de l\'arrêt', status: 'unknown' });
+        }
+    });
 });
 
 // Route pour changer le mot de passe

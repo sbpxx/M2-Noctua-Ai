@@ -1154,7 +1154,7 @@ main {
 
 .status-text {
     font-size: 14px;
-    color: var(--text-secondary);
+    color: #ffffff;
 }
 
 .server-buttons {
@@ -1166,6 +1166,13 @@ main {
 .server-buttons .settings-btn-danger {
     flex: 1;
     justify-content: center;
+}
+
+.server-buttons button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
 /* Section À propos */
@@ -1413,7 +1420,7 @@ main {
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     text-align: center;
-    z-index: 1000;
+    z-index: 9999;
 }
 
 .error-message p {
@@ -1438,7 +1445,7 @@ main {
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     text-align: center;
-    z-index: 1000;
+    z-index: 9999;
 }
 
 .success-message p {

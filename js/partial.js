@@ -469,7 +469,18 @@ async function deleteConversation(conversationId) {
 
         if (response.ok) {
             showSuccess('Conversation supprimée avec succès');
-            // Recharger la liste des discussions
+
+            // Vérifier si on est sur la conversation supprimée
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentConvId = urlParams.get('conversationId');
+
+            if (currentConvId && parseInt(currentConvId) === parseInt(conversationId)) {
+                // Rediriger vers la page begin si on supprime la conversation actuelle
+                window.location.href = '/begin';
+                return;
+            }
+
+            // Sinon recharger la liste des discussions
             await loadDiscussions();
         } else {
             showError('Erreur lors de la suppression de la conversation');
