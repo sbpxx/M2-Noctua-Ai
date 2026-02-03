@@ -14,6 +14,30 @@ const secretKey = process.env.JWT_SECRET || 'fallback-secret-key'; // Clé secr�
 const RAG_API_URL = process.env.RAG_API_URL || 'http://127.0.0.1:5000/api/chat';
 const RAG_MODEL = 'rag-mistral';
 
+// Fonction pour enregistrer log admin
+async function logAdminAction(userId, action) {
+    try {
+        const client = await pool.connect();
+        // Récupérer l'email de l'utilisateur
+        const userResult = await client.query(
+            'SELECT email FROM "users" WHERE id = $1',
+            [userId]
+        );
+
+        if (userResult.rows.length > 0) {
+            const userEmail = userResult.rows[0].email;
+            await client.query(
+                'INSERT INTO admin_logs (user_email, action) VALUES ($1, $2)',
+                [userEmail, action]
+            );
+            console.log(`[LOG ADMIN] ${userEmail} : ${action}`);
+        }
+        client.release();
+    } catch (err) {
+        console.error('Erreur enregistrement log admin:', err.message);
+    }
+}
+
 // Configurer le moteur de templates EJS
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -204,6 +228,7 @@ app.get('/api/admin/mistral/status', authenticateToken, isAdmin, (req, res) => {
 // Démarrer Mistral
 app.post('/api/admin/mistral/start', authenticateToken, isAdmin, (req, res) => {
     console.log('Démarrage Mistral...');
+    const userId = req.user.id;
 
     // Vérifier d'abord si Mistral est déjà en cours
     exec(`${scriptsPath}/status_mistral.sh`, { timeout: 15000 }, (error, stdout, stderr) => {
@@ -215,6 +240,9 @@ app.post('/api/admin/mistral/start', authenticateToken, isAdmin, (req, res) => {
         const child = exec(`${scriptsPath}/start_mistral.sh`, { timeout: 60000, detached: true });
         child.unref();
 
+        // Enregistrer le log
+        logAdminAction(userId, 'Démarrage du serveur Mistral');
+
         // Retourner immédiatement
         res.json({ success: true, message: 'Démarrage de Mistral en cours...', status: 'loading' });
     });
@@ -222,14 +250,230 @@ app.post('/api/admin/mistral/start', authenticateToken, isAdmin, (req, res) => {
 
 // Arrêter Mistral
 app.post('/api/admin/mistral/stop', authenticateToken, isAdmin, (req, res) => {
+    const userId = req.user.id;
+
     exec(`${scriptsPath}/stop_mistral.sh`, { timeout: 30000 }, (error, stdout, stderr) => {
         try {
             const result = JSON.parse(stdout);
+
+            // Enregistrer le log arrêt
+            if (result.success) {
+                logAdminAction(userId, 'Arrêt du serveur Mistral');
+            }
+
             res.json(result);
         } catch (e) {
             res.json({ success: false, message: 'Erreur lors de l\'arrêt', status: 'unknown' });
         }
     });
+});
+
+// Route pour récupérer les utilisateurs (admin)
+app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const search = req.query.search || '';
+        const limit = 25;
+
+        const client = await pool.connect();
+
+        let result;
+        if (search) {
+            result = await client.query(
+                'SELECT id, name, email, admin FROM "users" WHERE email ILIKE $1 ORDER BY email ASC LIMIT $2',
+                [`%${search}%`, limit]
+            );
+        } else {
+            result = await client.query(
+                'SELECT id, name, email, admin FROM "users" ORDER BY email ASC LIMIT $1',
+                [limit]
+            );
+        }
+
+        client.release();
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Erreur récupération utilisateurs:', error);
+        res.status(500).json({ error: 'Erreur lors de la récupération des utilisateurs' });
+    }
+});
+
+// Route pour modifier le statut admin d'un utilisateur
+app.post('/api/admin/users/:userId/toggle-admin', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const targetUserId = req.params.userId;
+        const currentUserId = req.user.id;
+
+        // Empêche de modifier son propre statut 
+        if (parseInt(targetUserId) === parseInt(currentUserId)) {
+            return res.status(400).json({ error: 'Vous ne pouvez pas modifier votre propre statut admin' });
+        }
+
+        const client = await pool.connect();
+
+        // Récupérer le statut actuel
+        const userResult = await client.query(
+            'SELECT id, name, email, admin FROM "users" WHERE id = $1',
+            [targetUserId]
+        );
+
+        if (userResult.rows.length === 0) {
+            client.release();
+            return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        }
+
+        const currentAdmin = userResult.rows[0].admin;
+        const newAdmin = !currentAdmin;
+        const targetEmail = userResult.rows[0].email;
+
+        // Mettre à jour le statut
+        await client.query(
+            'UPDATE "users" SET admin = $1 WHERE id = $2',
+            [newAdmin, targetUserId]
+        );
+
+        client.release();
+
+        // Enregistrer le log
+        const actionMessage = newAdmin
+            ? `Promotion admin de l'utilisateur ${targetEmail}`
+            : `Retrait des droits admin de l'utilisateur ${targetEmail}`;
+        logAdminAction(currentUserId, actionMessage);
+
+        res.json({
+            success: true,
+            user: {
+                id: userResult.rows[0].id,
+                name: userResult.rows[0].name,
+                email: userResult.rows[0].email,
+                admin: newAdmin
+            },
+            message: newAdmin ? 'Utilisateur promu admin' : 'Droits admin retirés'
+        });
+    } catch (error) {
+        console.error('Erreur modification admin:', error);
+        res.status(500).json({ error: 'Erreur lors de la modification' });
+    }
+});
+
+// Route pour récupérer les logs admin
+app.get('/api/admin/logs', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 50;
+        const client = await pool.connect();
+
+        const result = await client.query(
+            'SELECT id, user_email, action, created_at FROM admin_logs ORDER BY created_at DESC LIMIT $1',
+            [limit]
+        );
+
+        client.release();
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Erreur récupération logs:', error);
+        res.status(500).json({ error: 'Erreur lors de la récupération des logs' });
+    }
+});
+
+// Route pour exporter les données utilisateur
+app.get('/api/user/export-data', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const client = await pool.connect();
+
+        try {
+            // Récupérer les informations utilisateur 
+            const userResult = await client.query(
+                'SELECT id, name, email FROM "users" WHERE id = $1',
+                [userId]
+            );
+
+            if (userResult.rows.length === 0) {
+                client.release();
+                return res.status(404).json({ error: 'Utilisateur non trouvé' });
+            }
+
+            const user = userResult.rows[0];
+
+            // Récupérer toutes les conversations de l'utilisateur
+            const conversationsResult = await client.query(
+                'SELECT id, title, created_at, updated_at FROM conversations WHERE user_id = $1 ORDER BY created_at ASC',
+                [userId]
+            );
+
+            const conversations = [];
+            let totalMessages = 0;
+
+            // Pour chaque conversation, récupérer les messages
+            for (const conv of conversationsResult.rows) {
+                const messagesResult = await client.query(
+                    'SELECT sender, content, sources, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+                    [conv.id]
+                );
+
+                const messages = messagesResult.rows.map(msg => {
+                    let sources = null;
+                    if (msg.sources) {
+                        // Si c'est déjà un objet, l'utiliser directement
+                        if (typeof msg.sources === 'object') {
+                            sources = msg.sources;
+                        } else if (typeof msg.sources === 'string' && msg.sources.trim()) {
+                            try {
+                                sources = JSON.parse(msg.sources);
+                            } catch (e) {
+                                sources = null;
+                            }
+                        }
+                    }
+                    return {
+                        sender: msg.sender,
+                        content: msg.content,
+                        sources: sources,
+                        created_at: msg.created_at
+                    };
+                });
+
+                totalMessages += messages.length;
+
+                conversations.push({
+                    id: conv.id,
+                    title: conv.title,
+                    created_at: conv.created_at,
+                    updated_at: conv.updated_at,
+                    messages: messages
+                });
+            }
+
+            // Construire l'objet 
+            const exportData = {
+                export_date: new Date().toISOString(),
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email
+                },
+                conversations: conversations,
+                statistics: {
+                    total_conversations: conversations.length,
+                    total_messages: totalMessages
+                }
+            };
+
+            client.release();
+
+            // Envoyer le fichier JSON* pour téléchargement
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Content-Disposition', `attachment; filename="noctua-data-${user.id}-${Date.now()}.json"`);
+            res.json(exportData);
+
+        } catch (error) {
+            client.release();
+            throw error;
+        }
+
+    } catch (error) {
+        console.error('Erreur export données:', error);
+        res.status(500).json({ error: 'Erreur lors de l\'export des données' });
+    }
 });
 
 // Route pour changer le mot de passe
@@ -379,6 +623,55 @@ app.delete('/conversations/:id', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Erreur suppression conversation:', error);
         res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// Supprimer toutes les conversations d'un utilisateur
+app.delete('/api/user/conversations/all', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const client = await pool.connect();
+
+        try {
+            // Récupérer les IDs des conversations de l'utilisateur
+            const conversationsResult = await client.query(
+                'SELECT id FROM conversations WHERE user_id = $1',
+                [userId]
+            );
+
+            const conversationIds = conversationsResult.rows.map(row => row.id);
+
+            if (conversationIds.length === 0) {
+                client.release();
+                return res.json({ success: true, message: 'Aucune conversation à supprimer', deleted: 0 });
+            }
+
+            // Supprimer tous les messages des conversations
+            await client.query(
+                'DELETE FROM messages WHERE conversation_id = ANY($1)',
+                [conversationIds]
+            );
+
+            // Supprimer toutes les conversations
+            const deleteResult = await client.query(
+                'DELETE FROM conversations WHERE user_id = $1',
+                [userId]
+            );
+
+            client.release();
+            res.json({
+                success: true,
+                message: 'Historique supprimé avec succès',
+                deleted: deleteResult.rowCount
+            });
+
+        } catch (error) {
+            client.release();
+            throw error;
+        }
+    } catch (error) {
+        console.error('Erreur suppression historique:', error);
+        res.status(500).json({ error: 'Erreur lors de la suppression de l\'historique' });
     }
 });
 

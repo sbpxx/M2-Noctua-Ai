@@ -1,0 +1,37 @@
+<div class="modal-users" id="usersModal">
+    <div class="modal-overlay"></div>
+    <div class="users-modal-content">
+        <button class="modal-close" onclick="closeUsersModal()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+
+        <div class="users-layout">
+            <div class="users-header">
+                <div class="users-icon">
+                    <i class="ri-user-settings-line"></i>
+                </div>
+                <h2>Gestion des utilisateurs</h2>
+            </div>
+
+            <div class="users-input-container">
+                <i class="ri-search-line users-input-icon"></i>
+                <input type="text"
+                       class="users-input"
+                       id="users-search-input"
+                       placeholder="Rechercher par adresse email..."
+                       autocomplete="off">
+                <button class="users-clear-btn" id="users-clear-btn" style="display: none;">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+
+            <div class="users-count" id="users-count"></div>
+
+            <div class="users-results" id="users-results">
+                <p class="users-empty-state">Chargement des utilisateurs...</p>
+            </div>
+        </div>
+    </div>
+</div>

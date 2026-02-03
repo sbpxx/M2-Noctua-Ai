@@ -128,7 +128,7 @@
                     <div class="settings-group">
                         <label class="settings-label">Historique des conversations</label>
                         <p class="settings-description">Supprimez l'historique de toutes vos conversations</p>
-                        <button class="settings-btn-danger">
+                        <button class="settings-btn-danger" id="delete-history-btn">
                             <i class="ri-delete-bin-line"></i>
                             <span>Supprimer l'historique</span>
                         </button>
@@ -137,7 +137,7 @@
                     <div class="settings-group">
                         <label class="settings-label">Exporter les données</label>
                         <p class="settings-description">Téléchargez une copie de vos données</p>
-                        <button class="settings-btn-secondary">
+                        <button class="settings-btn-secondary" id="download-data-btn">
                             <i class="ri-download-line"></i>
                             <span>Télécharger mes données</span>
                         </button>
@@ -229,6 +229,25 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation suppression historique -->
+<div class="confirm-modal" id="confirmDeleteHistoryModal">
+    <div class="confirm-modal-overlay"></div>
+    <div class="confirm-modal-content">
+        <div class="confirm-modal-icon danger">
+            <i class="ri-delete-bin-line"></i>
+        </div>
+        <h3>Supprimer l'historique ?</h3>
+        <p>Cette action supprimera <strong>toutes vos conversations</strong> et leurs messages. Cette action est irréversible.</p>
+        <div class="confirm-modal-buttons">
+            <button class="confirm-btn-cancel" id="cancel-delete-history">Annuler</button>
+            <button class="confirm-btn-danger" id="confirm-delete-history">
+                <i class="ri-delete-bin-line"></i>
+                Supprimer
+            </button>
         </div>
     </div>
 </div>
