@@ -42,7 +42,14 @@ async function logAdminAction(userId, action) {
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-app.use(express.static('.'));
+const isDev = process.env.NODE_ENV !== 'production';
+app.use(express.static('.', isDev ? {
+    etag: false,
+    maxAge: 0,
+    setHeaders: (res) => {
+        res.set('Cache-Control', 'no-store');
+    }
+} : {}));
 app.use(express.json());
 
 app.get('/favicon.ico', function(req, res) {
@@ -728,39 +735,24 @@ io.on('connection', (socket) => {
                     return;
                 }
 
-                // Vérifier si le message existe déjà
-                const existingMessage = await client.query(
-                    'SELECT id FROM messages WHERE conversation_id = $1 AND sender = $2 AND content = $3 ORDER BY created_at DESC LIMIT 1',
+                // Stocker le message utilisateur
+                await client.query(
+                    'INSERT INTO messages (conversation_id, sender, content, created_at) VALUES ($1, $2, $3, NOW())',
                     [conversationId, 'user', message]
                 );
 
-                let shouldInsertUserMessage = true;
-                if (existingMessage.rows.length > 0) {
-                    // Le message existe déjà, ne pas le réinsérer
-                    shouldInsertUserMessage = false;
-                    console.log('Message utilisateur déjà existant, pas de réinsertion');
-                }
+                // Mettre à jour la conversation
+                await client.query(
+                    'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
+                    [conversationId]
+                );
 
-                if (shouldInsertUserMessage) {
-                    // Stocker le message utilisateur
-                    await client.query(
-                        'INSERT INTO messages (conversation_id, sender, content, created_at) VALUES ($1, $2, $3, NOW())',
-                        [conversationId, 'user', message]
-                    );
-
-                    // Mettre à jour la conversation
-                    await client.query(
-                        'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
-                        [conversationId]
-                    );
-
-                    // Émettre le message utilisateur à la room
-                    io.to(`conversation-${conversationId}`).emit('receive-message', {
-                        sender: 'user',
-                        content: message,
-                        created_at: new Date()
-                    });
-                }
+                // Émettre le message utilisateur à la room
+                io.to(`conversation-${conversationId}`).emit('receive-message', {
+                    sender: 'user',
+                    content: message,
+                    created_at: new Date()
+                });
 
                 // Récupérer l'historique pour le contexte
                 const historyResult = await client.query(
@@ -795,6 +787,12 @@ io.on('connection', (socket) => {
                     aiMessage = ragResponse.data.message.content;
                     aiSources = ragResponse.data.sources || [];
                     console.log('RAG response received with', aiSources.length, 'sources');
+
+                    // Nettoyage des blocs de sources en fin de réponse
+                    aiMessage = aiMessage.replace(/^[ \t]*[-*]?\s*\*{0,2}\[?(?:Sources?\s*)?\d+\]?\*{0,2}\s*:.*$/gm, '');
+                    aiMessage = aiMessage.replace(/^[ \t]*\*{0,2}Sources?\s*:?\s*\*{0,2}$/gim, '');
+                    aiMessage = aiMessage.replace(/^.*(?:consulter|voir|référer|retrouver)\s+(?:les\s+)?sources?\s+(?:fournies?|ci-dessus|ci-dessous|mentionnées?|suivantes?).*$/gim, '');
+                    aiMessage = aiMessage.replace(/\n{3,}/g, '\n\n').trim();
 
                 } catch (ragError) {
                     console.error('RAG API error:', ragError.message);

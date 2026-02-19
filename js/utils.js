@@ -671,9 +671,9 @@ function displaySearchResults(conversations, searchTerm) {
 
 // Mettre en surbrillance le terme recherché
 function highlightSearchTerm(text, searchTerm) {
-    if (!searchTerm) return escapeHtmlSearch(text);
+    if (!searchTerm) return escapeHtml(text);
 
-    const escaped = escapeHtmlSearch(text);
+    const escaped = escapeHtml(text);
     const regex = new RegExp(`(${escapeRegex(searchTerm)})`, 'gi');
     return escaped.replace(regex, '<mark>$1</mark>');
 }
@@ -683,7 +683,8 @@ function escapeRegex(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function escapeHtmlSearch(text) {
+// Échapper le HTML
+function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
@@ -867,7 +868,7 @@ function displayUsersResults(users, searchTerm) {
                     <i class="${isAdmin ? 'ri-shield-user-fill' : 'ri-user-fill'}"></i>
                 </div>
                 <div class="user-info">
-                    <p class="user-name">${escapeHtmlUsers(user.name || 'Sans nom')}</p>
+                    <p class="user-name">${escapeHtml(user.name || 'Sans nom')}</p>
                     <p class="user-email">${emailDisplay}</p>
                 </div>
                 <span class="user-badge ${isAdmin ? 'admin' : 'user'}">${isAdmin ? 'Admin' : 'User'}</span>
@@ -906,22 +907,11 @@ function getCurrentUserId() {
 
 // Mettre en surbrillance le terme recherché
 function highlightUserSearchTerm(text, searchTerm) {
-    if (!searchTerm) return escapeHtmlUsers(text);
+    if (!searchTerm) return escapeHtml(text);
 
-    const escaped = escapeHtmlUsers(text);
-    const regex = new RegExp(`(${escapeRegexUsers(searchTerm)})`, 'gi');
+    const escaped = escapeHtml(text);
+    const regex = new RegExp(`(${escapeRegex(searchTerm)})`, 'gi');
     return escaped.replace(regex, '<mark>$1</mark>');
-}
-
-// gestn pour les caractères spéciaux pour regex
-function escapeRegexUsers(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function escapeHtmlUsers(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // Basculer le statut admin d'un utilisateur
@@ -1059,9 +1049,9 @@ function displayLogs(logs) {
                     <i class="${icon}"></i>
                 </div>
                 <div class="log-content">
-                    <p class="log-action">${escapeHtmlLogs(log.action)}</p>
+                    <p class="log-action">${escapeHtml(log.action)}</p>
                     <div class="log-meta">
-                        <span><i class="ri-user-line"></i><span class="log-email">${escapeHtmlLogs(log.user_email)}</span></span>
+                        <span><i class="ri-user-line"></i><span class="log-email">${escapeHtml(log.user_email)}</span></span>
                         <span><i class="ri-time-line"></i>${date}</span>
                     </div>
                 </div>
@@ -1123,12 +1113,6 @@ function formatLogDate(dateString) {
             minute: '2-digit'
         });
     }
-}
-
-function escapeHtmlLogs(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // Init les événements du modal logs

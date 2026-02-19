@@ -300,34 +300,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-// fonction pour ajouter des bulles de messages
-function addMessageBubble(message, sender = 'user') {
-    const chatContainer = document.getElementById('chat-container');
-    if (!chatContainer) return;
-    const bubble = document.createElement('div');
-    bubble.className = `message-bubble ${sender}`;
-    bubble.textContent = message;
-    chatContainer.appendChild(bubble);
-    chatContainer.scrollTop = chatContainer.scrollHeight;
-}
-
-// event pour envoyer des messages ( géré actuellement par socket.io )
-// if (document.getElementById('send-btn')) {
-//     document.getElementById('send-btn').addEventListener('click', () => {
-//         const input = document.getElementById('chat-input');
-//         const message = input.value.trim();
-//         if (message) {
-//             addMessageBubble(message, 'user');
-//             input.value = '';
-//         }
-//     });
-//     document.getElementById('chat-input').addEventListener('keydown', (e) => {
-//         if (e.key === 'Enter') {
-//             document.getElementById('send-btn').click();
-//         }
-//     });
-// }
-
 // Charger les discussions de l'utilisateur dans la sidebar
 async function loadDiscussions() {
     const token = sessionStorage.getItem('authToken');

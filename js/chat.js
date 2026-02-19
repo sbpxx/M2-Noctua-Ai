@@ -6,6 +6,7 @@ let currentConversationId = null;
 let isConnected = false;
 let isWaitingForResponse = false;
 let allSources = [];
+let skipNextUserMessage = false;
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('[CHAT.JS] DOM Content Loaded');
@@ -80,6 +81,13 @@ socket.on('receive-message', (data) => {
         content = "Désolé, le service IA est temporairement indisponible. Veuillez réessayer dans quelques instants.";
     }
 
+    // Éviter le doublon du premier message
+    if (data.sender === 'user' && skipNextUserMessage) {
+        skipNextUserMessage = false;
+        showTypingIndicator();
+        return;
+    }
+
     // Passer les sources si disponibles
     displayMessage(data.sender, content, true, data.sources || []);
 
@@ -145,6 +153,8 @@ async function loadConversationMessages(conversationId) {
 
             // Désactiver les contrôles pendant l'attente de la première réponse
             disableSendControls();
+
+            skipNextUserMessage = true;
 
             socket.emit('send-message', {
                 conversationId: conversationId,
@@ -329,20 +339,29 @@ function hideTypingIndicator() {
 
 // Parser les sources du contenu du message
 function parseSourcesFromContent(content) {
-    // Regex pour capturer [Source 1,2,3] ou [Source 1] ou [Source 1, 2, 3]
-    const sourceRegex = /\[Source\s*([\d,\s]+)\]/gi;
     const sources = [];
     const sourceNumbers = new Set();
 
-    // Extraire tous les numéros de sources uniques
+    // Extraction des numéros de sources depuis tous les formats
+    const parseNums = str => str.split(/[\s,]+|et/i).map(n => n.trim()).filter(n => /^\d+$/.test(n));
+
+    const sourcePatterns = [
+        /\[Sources?\s*([\d\s,et]+)\]/gi,
+        /\(Sources?\s*([\d\s,et]+)\)/gi,
+        /\bSources?\s+(\d+(?:\s*(?:,\s*|et\s+)\d+)*)/gi
+    ];
+
     let match;
-    while ((match = sourceRegex.exec(content)) !== null) {
-        // Séparer les numéros (ex: "1,2,3" ou "1, 2, 3")
-        const nums = match[1].split(',').map(n => n.trim()).filter(n => n);
-        nums.forEach(num => sourceNumbers.add(num));
+    for (const regex of sourcePatterns) {
+        while ((match = regex.exec(content)) !== null) {
+            parseNums(match[1]).forEach(num => sourceNumbers.add(num));
+        }
+    }
+    const bareRefRegex = /\[(\d+)\]/g;
+    while ((match = bareRefRegex.exec(content)) !== null) {
+        sourceNumbers.add(match[1]);
     }
 
-    // Créer les objets sources
     sourceNumbers.forEach(num => {
         sources.push({
             id: `source-${Date.now()}-${num}`,
@@ -352,25 +371,41 @@ function parseSourcesFromContent(content) {
         });
     });
 
-    // Remplacer les références par des spans cliquables
-    const html = escapeHtml(content).replace(
-        /\[Source\s*([\d,\s]+)\]/gi,
-        (match, numsStr) => {
-            const nums = numsStr.split(',').map(n => n.trim()).filter(n => n);
-            return nums.map(num =>
-                `<span class="source-ref" data-source="${num}" onclick="highlightSource(${num})">[${num}]</span>`
-            ).join(' ');
-        }
-    );
+    // Nettoyage des blocs de sources en fin de réponse
+    content = content.replace(/^[ \t]*[-*]?\s*\*{0,2}\[?(?:Sources?\s*)?\d+\]?\*{0,2}\s*:.*$/gm, '');
+    content = content.replace(/^[ \t]*\*{0,2}Sources?\s*:?\s*\*{0,2}$/gim, '');
+    content = content.replace(/^.*(?:consulter|voir|référer|retrouver)\s+(?:les\s+)?sources?\s+(?:fournies?|ci-dessus|ci-dessous|mentionnées?|suivantes?).*$/gim, '');
+    let processedContent = content.replace(/\n{3,}/g, '\n\n').trim();
+
+    // Remplacement des refs par des placeholders avant le parsing markdown
+    const sourcePlaceholders = [];
+    const toPlaceholder = (match, numsStr) => {
+        const placeholder = `%%SOURCE_${sourcePlaceholders.length}%%`;
+        sourcePlaceholders.push(numsStr);
+        return placeholder;
+    };
+
+    for (const regex of [
+        /\[Sources?\s*([\d\s,et]+)\]/gi,
+        /\(Sources?\s*([\d\s,et]+)\)/gi,
+        /\bSources?\s+(\d+(?:\s*(?:,\s*|et\s+)\d+)*)/gi,
+        /\[(\d+)\]/g
+    ]) {
+        processedContent = processedContent.replace(regex, toPlaceholder);
+    }
+
+    // Markdown + restauration en spans cliquables
+    let html = marked.parse(processedContent, { breaks: true });
+
+    sourcePlaceholders.forEach((numsStr, i) => {
+        const nums = parseNums(numsStr);
+        const sourceHtml = nums.map(num =>
+            `<span class="source-ref" data-source="${num}" onclick="highlightSource(${num})">[${num}]</span>`
+        ).join(' ');
+        html = html.replace(`%%SOURCE_${i}%%`, sourceHtml);
+    });
 
     return { html, sources };
-}
-
-// Échapper le HTML pour éviter les injections
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // Ajouter une source à la sidebar
