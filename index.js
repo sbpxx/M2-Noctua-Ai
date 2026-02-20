@@ -560,10 +560,13 @@ app.post('/conversations', async (req, res) => {
 // Récupérer les discussions d'un utilisateur
 app.get('/conversations/user/:userId', async (req, res) => {
     try {
+        const userId = parseInt(req.params.userId);
+        if (isNaN(userId)) return res.status(400).json({ error: 'ID utilisateur invalide' });
+
         const client = await pool.connect();
         const result = await client.query(
             'SELECT * FROM conversations WHERE user_id = $1 ORDER BY updated_at DESC',
-            [req.params.userId]
+            [userId]
         );
         client.release();
         res.json(result.rows);
@@ -586,6 +589,133 @@ app.get('/conversations/:conversationId/messages', async (req, res) => {
     } catch (err) {
         console.error('Erreur:', err);
         res.status(500).json({ error: 'Erreur lors de la récupération des messages' });
+    }
+});
+
+// Modifier le titre d'une conversation
+app.patch('/conversations/:id/title', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title } = req.body;
+        const userId = req.user.id;
+
+        if (!title || !title.trim()) {
+            return res.status(400).json({ error: 'Titre requis' });
+        }
+
+        const client = await pool.connect();
+        const check = await client.query(
+            'SELECT id FROM conversations WHERE id = $1 AND user_id = $2',
+            [id, userId]
+        );
+
+        if (check.rows.length === 0) {
+            client.release();
+            return res.status(404).json({ error: 'Conversation non trouvée' });
+        }
+
+        await client.query('UPDATE conversations SET title = $1 WHERE id = $2', [title.trim(), id]);
+        client.release();
+        res.json({ success: true, title: title.trim() });
+    } catch (err) {
+        console.error('Erreur modification titre:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// Archiver une conversation
+app.post('/conversations/:id/archive', authenticateToken, async (req, res) => {
+    try {
+        const conversationId = parseInt(req.params.id);
+        const userId = req.user.id;
+
+        const client = await pool.connect();
+        await client.query(
+            `UPDATE users SET archived_conversations = array_append(archived_conversations, $1)
+             WHERE id = $2 AND NOT ($1 = ANY(COALESCE(archived_conversations, '{}'::integer[])))`,
+            [conversationId, userId]
+        );
+        client.release();
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Erreur archivage:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// Désarchiver une conversation
+app.delete('/conversations/:id/archive', authenticateToken, async (req, res) => {
+    try {
+        const conversationId = parseInt(req.params.id);
+        const userId = req.user.id;
+
+        const client = await pool.connect();
+        await client.query(
+            'UPDATE users SET archived_conversations = array_remove(archived_conversations, $1) WHERE id = $2',
+            [conversationId, userId]
+        );
+        client.release();
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Erreur désarchivage:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// Récupérer les conversations archivées
+app.get('/api/user/archived-conversations', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const client = await pool.connect();
+
+        const userResult = await client.query(
+            `SELECT COALESCE(archived_conversations, '{}'::integer[]) AS archived_conversations FROM users WHERE id = $1`,
+            [userId]
+        );
+        const archivedIds = userResult.rows[0]?.archived_conversations || [];
+
+        if (archivedIds.length === 0) {
+            client.release();
+            return res.json([]);
+        }
+
+        const convsResult = await client.query(
+            'SELECT id, title, created_at, updated_at FROM conversations WHERE id = ANY($1) ORDER BY updated_at DESC',
+            [archivedIds]
+        );
+        client.release();
+        res.json(convsResult.rows);
+    } catch (err) {
+        console.error('Erreur récupération archives:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// Voter pour un message bot (1 = upvote, -1 = downvote)
+app.patch('/messages/:messageId/note', async (req, res) => {
+    try {
+        const { messageId } = req.params;
+        const { note } = req.body;
+
+        if (note !== 1 && note !== -1 && note !== null) {
+            return res.status(400).json({ error: 'Note invalide (1, -1 ou null)' });
+        }
+
+        const client = await pool.connect();
+        const result = await client.query(
+            'UPDATE messages SET note = $1 WHERE id = $2 RETURNING id, note',
+            [note, messageId]
+        );
+        client.release();
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Message non trouvé' });
+        }
+
+        res.json({ success: true, id: result.rows[0].id, note: result.rows[0].note });
+    } catch (err) {
+        console.error('Erreur vote message:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
     }
 });
 
@@ -736,10 +866,11 @@ io.on('connection', (socket) => {
                 }
 
                 // Stocker le message utilisateur
-                await client.query(
-                    'INSERT INTO messages (conversation_id, sender, content, created_at) VALUES ($1, $2, $3, NOW())',
+                const userMsgResult = await client.query(
+                    'INSERT INTO messages (conversation_id, sender, content, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id, created_at',
                     [conversationId, 'user', message]
                 );
+                const userMsg = userMsgResult.rows[0];
 
                 // Mettre à jour la conversation
                 await client.query(
@@ -751,7 +882,8 @@ io.on('connection', (socket) => {
                 io.to(`conversation-${conversationId}`).emit('receive-message', {
                     sender: 'user',
                     content: message,
-                    created_at: new Date()
+                    id: userMsg.id,
+                    created_at: userMsg.created_at
                 });
 
                 // Récupérer l'historique pour le contexte
@@ -801,10 +933,11 @@ io.on('connection', (socket) => {
                 }
 
                 // Stocker la réponse IA avec les sources
-                await client.query(
-                    'INSERT INTO messages (conversation_id, sender, content, sources, created_at) VALUES ($1, $2, $3, $4, NOW())',
+                const botMsgResult = await client.query(
+                    'INSERT INTO messages (conversation_id, sender, content, sources, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id, created_at',
                     [conversationId, 'bot', aiMessage, JSON.stringify(aiSources)]
                 );
+                const botMsg = botMsgResult.rows[0];
 
                 // Mettre à jour la conversation à nouveau
                 await client.query(
@@ -817,7 +950,8 @@ io.on('connection', (socket) => {
                     sender: 'bot',
                     content: aiMessage,
                     sources: aiSources,
-                    created_at: new Date()
+                    id: botMsg.id,
+                    created_at: botMsg.created_at
                 });
 
             } finally {

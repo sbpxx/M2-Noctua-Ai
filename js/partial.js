@@ -315,8 +315,19 @@ async function loadDiscussions() {
         });
         const userData = await userResponse.json();
 
-        const conversationsResponse = await fetch(`/conversations/user/${userData.id}`);
-        const conversations = await conversationsResponse.json();
+        if (!userData || !userData.id) return;
+
+        const [conversationsResponse, archivedResponse] = await Promise.all([
+            fetch(`/conversations/user/${userData.id}`),
+            fetch('/api/user/archived-conversations', { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        let conversations = await conversationsResponse.json();
+        const archivedIds = new Set(
+            (await archivedResponse.json().catch(() => [])).map(c => c.id)
+        );
+
+        // Exclure les conversations archivées de la liste principale
+        conversations = conversations.filter(c => !archivedIds.has(c.id));
 
         // Vérifier s'il y a une nouvelle conversation à ajouter
         const newConvString = localStorage.getItem('newConversation');
@@ -513,9 +524,11 @@ document.addEventListener('click', function(e) {
         if (action === 'delete') {
             deleteConversation(conversationId);
         } else if (action === 'edit') {
-            showError('Fonctionnalité en développement');
+            const titleEl = document.querySelector(`.discussion-link[data-conversation-id="${conversationId}"] .menu-title`);
+            const currentTitle = titleEl ? titleEl.textContent : '';
+            openRenameModal(conversationId, currentTitle);
         } else if (action === 'archive') {
-            showError('Fonctionnalité en développement');
+            archiveConversation(conversationId);
         } else if (action === 'share') {
             showError('Fonctionnalité en développement');
         }
@@ -527,6 +540,174 @@ document.addEventListener('click', function(e) {
     if (!clickedInsideMenu) {
         document.querySelectorAll('.discussion-dropdown-menu.show').forEach(menu => {
             menu.classList.remove('show');
+        });
+    }
+});
+
+// ─── ARCHIVE ────────────────────────────────────────────────────────────────
+
+async function archiveConversation(conversationId) {
+    const token = sessionStorage.getItem('authToken');
+    if (!token) { showError('Vous devez être connecté'); return; }
+
+    try {
+        const res = await fetch(`/conversations/${conversationId}/archive`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error();
+
+        showSuccess('Conversation archivée');
+
+        // Si on est sur cette conversation, rediriger
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('conversationId') == conversationId) {
+            window.location.href = '/begin';
+            return;
+        }
+        await safeLoadDiscussions();
+    } catch {
+        showError('Erreur lors de l\'archivage');
+    }
+}
+
+async function unarchiveConversation(conversationId) {
+    const token = sessionStorage.getItem('authToken');
+    if (!token) return;
+
+    try {
+        const res = await fetch(`/conversations/${conversationId}/archive`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error();
+
+        showSuccess('Conversation désarchivée');
+        await openArchiveModal(); // rafraîchir la liste
+        await safeLoadDiscussions();
+    } catch {
+        showError('Erreur lors du désarchivage');
+    }
+}
+
+async function openArchiveModal() {
+    const token = sessionStorage.getItem('authToken');
+    const modal = document.getElementById('archiveModal');
+    const resultsEl = document.getElementById('archive-results');
+    if (!modal) return;
+
+    modal.classList.add('open');
+
+    if (!token) {
+        resultsEl.innerHTML = '<p class="archive-empty-state">Vous devez être connecté.</p>';
+        return;
+    }
+
+    resultsEl.innerHTML = '<p class="archive-empty-state">Chargement...</p>';
+
+    try {
+        const res = await fetch('/api/user/archived-conversations', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const conversations = await res.json();
+
+        if (!conversations.length) {
+            resultsEl.innerHTML = '<p class="archive-empty-state">Aucune conversation archivée.</p>';
+            return;
+        }
+
+        resultsEl.innerHTML = '';
+        conversations.forEach(conv => {
+            const item = document.createElement('div');
+            item.className = 'archive-item';
+            item.innerHTML = `
+                <a href="/chat?conversationId=${conv.id}" class="archive-item-title">${escapeHtml(conv.title)}</a>
+                <button class="archive-unarchive-btn" title="Désarchiver">
+                    <i class="ri-inbox-unarchive-line"></i>
+                </button>
+            `;
+            item.querySelector('.archive-unarchive-btn').addEventListener('click', () => unarchiveConversation(conv.id));
+            resultsEl.appendChild(item);
+        });
+    } catch {
+        resultsEl.innerHTML = '<p class="archive-empty-state">Erreur de chargement.</p>';
+    }
+}
+
+function closeArchiveModal() {
+    const modal = document.getElementById('archiveModal');
+    if (modal) modal.classList.remove('open');
+}
+
+// ─── RENAME TITRE ─────────────────────────────────────────────────────────────────
+
+let _renameConversationId = null;
+
+function openRenameModal(conversationId, currentTitle) {
+    _renameConversationId = conversationId;
+    const modal = document.getElementById('renameModal');
+    const input = document.getElementById('rename-input');
+    if (!modal || !input) return;
+
+    input.value = currentTitle || '';
+    modal.classList.add('open');
+    setTimeout(() => { input.focus(); input.select(); }, 50);
+}
+
+function closeRenameModal() {
+    const modal = document.getElementById('renameModal');
+    if (modal) modal.classList.remove('open');
+    _renameConversationId = null;
+}
+
+async function renameConversation() {
+    const token = sessionStorage.getItem('authToken');
+    const input = document.getElementById('rename-input');
+    const newTitle = input ? input.value.trim() : '';
+
+    if (!newTitle) { showError('Le titre ne peut pas être vide'); return; }
+    if (!_renameConversationId) return;
+
+    try {
+        const res = await fetch(`/conversations/${_renameConversationId}/title`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: newTitle })
+        });
+        if (!res.ok) throw new Error();
+
+        showSuccess('Titre modifié');
+        closeRenameModal();
+        await safeLoadDiscussions();
+    } catch {
+        showError('Erreur lors de la modification du titre');
+    }
+}
+
+// ─── Init listeners archive + rename ────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Bouton Archives dans la sidebar
+    const archiveBtn = document.getElementById('archive-conversations-btn');
+    if (archiveBtn) {
+        archiveBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openArchiveModal();
+        });
+    }
+
+    // Bouton Valider du modal rename
+    const renameConfirmBtn = document.getElementById('rename-confirm-btn');
+    if (renameConfirmBtn) {
+        renameConfirmBtn.addEventListener('click', renameConversation);
+    }
+
+    // Valider avec Entrée
+    const renameInput = document.getElementById('rename-input');
+    if (renameInput) {
+        renameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') renameConversation();
+            if (e.key === 'Escape') closeRenameModal();
         });
     }
 });

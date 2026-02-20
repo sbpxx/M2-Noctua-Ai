@@ -2067,6 +2067,60 @@ transition: gap 0.3s ease;
     margin: 0;
 }
 
+.message-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.message-time {
+    font-size: 0.72rem;
+    color: #999;
+    white-space: nowrap;
+}
+
+.message-bubble.user .message-time {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.message-actions {
+    display: flex;
+    gap: 0.3rem;
+}
+
+.vote-btn {
+    background: none;
+    border: 1px solid #d0cde8;
+    border-radius: 6px;
+    padding: 0.18rem 0.4rem;
+    cursor: pointer;
+    color: #999;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    line-height: 1;
+}
+
+.vote-btn:hover {
+    border-color: #7A73D1;
+    color: #7A73D1;
+}
+
+.vote-btn.active.thumb-up {
+    border-color: #22c55e;
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.10);
+}
+
+.vote-btn.active.thumb-down {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.10);
+}
+
 /* Markdown dans les messages bot */
 .message-content p {
     margin: 0 0 0.5rem 0;
@@ -2327,6 +2381,31 @@ transition: gap 0.3s ease;
     text-align: center;
     padding: 2rem 1rem;
     font-style: italic;
+}
+
+.sources-group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #7A73D1;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.25rem 0;
+    margin-top: 0.5rem;
+}
+
+.sources-group-header::before,
+.sources-group-header::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e0ddf8;
+}
+
+.sources-group-header:first-child {
+    margin-top: 0;
 }
 
 .source-card {
@@ -2644,6 +2723,28 @@ transition: gap 0.3s ease;
     }
 }
 
+
+/* ─── Styles communs : overlay centré ───────────────────────────────────── */
+
+.modal-search,
+.modal-archive,
+.modal-rename {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-search.open,
+.modal-archive.open,
+.modal-rename.open {
+    display: flex;
+}
 
  /*  Modal Recherche de Conversations */
 
@@ -3602,4 +3703,198 @@ transition: gap 0.3s ease;
         width: 100%;
         justify-content: center;
     }
+}
+
+/* ─── Modal Archives ─────────────────────────────────────────────────────── */
+
+.archive-modal-content {
+    position: relative;
+    background: var(--bg-color);
+    border-radius: 20px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.archive-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 32px;
+}
+
+.archive-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.archive-header .archive-icon {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 28px;
+    margin-bottom: 16px;
+}
+
+.archive-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #667eea;
+    margin: 0;
+}
+
+.archive-results {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 120px;
+    max-height: 420px;
+}
+
+.archive-empty-state {
+    text-align: center;
+    color: #6b6b6b;
+    font-size: 14px;
+    padding: 40px 20px;
+}
+
+.archive-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
+}
+
+.archive-item:hover {
+    background: rgba(102, 126, 234, 0.08);
+    border-color: rgba(102, 126, 234, 0.25);
+}
+
+.archive-item-title {
+    color: #fff;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 12px;
+}
+
+.archive-item-title:hover {
+    color: #a78bfa;
+}
+
+.archive-unarchive-btn {
+    background: none;
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 8px;
+    padding: 6px 8px;
+    color: #8b8b8b;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.archive-unarchive-btn:hover {
+    border-color: #667eea;
+    color: #667eea;
+}
+
+/* ─── Modal Rename ───────────────────────────────────────────────────────── */
+
+.rename-modal-content {
+    position: relative;
+    background: var(--bg-color);
+    border-radius: 16px;
+    width: 380px;
+    max-width: 90vw;
+    border: 1px solid rgba(102, 126, 234, 0.25);
+    padding: 28px 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.rename-modal-content h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: #a78bfa;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#rename-input {
+    width: 100%;
+    padding: 11px 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 15px;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#rename-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.18);
+}
+
+.rename-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.rename-cancel-btn {
+    padding: 9px 18px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: none;
+    color: #8b8b8b;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.rename-cancel-btn:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #fff;
+}
+
+.rename-confirm-btn {
+    padding: 9px 22px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.rename-confirm-btn:hover {
+    opacity: 0.88;
 }
