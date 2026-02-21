@@ -1,19 +1,14 @@
 // Initialize Socket.io connection
 const socket = io();
-console.log('[CHAT.JS] Socket.io initialisé');
 
 let currentConversationId = null;
 let isConnected = false;
 let isWaitingForResponse = false;
-let messageSourcesMap = new Map(); 
+let messageSourcesMap = new Map(); // messageIndex (int) → sources[]
 let botMessageCount = 0;           // compteur pour indexer chaque message bot
-let activeMessageIndex = null;     // index du message dont les sources sont affichées
 let skipNextUserMessage = false;
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('[CHAT.JS] DOM Content Loaded');
-
-    // is logged?
     const token = sessionStorage.getItem('authToken');
     const isGuest = !token;
 
@@ -24,15 +19,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (isGuest) {
         const guestConvId = sessionStorage.getItem('guestConversationId');
 
-        // redirection begin si pas de session
         if (!guestConvId) {
-            console.log('[CHAT.JS] Guest sans session, redirection /begin');
             window.location.href = '/begin';
             return;
         }
 
         if (currentConversationId !== guestConvId) {
-            console.log('[CHAT.JS] ID mismatch, redirection /begin');
             clearGuestSession();
             window.location.href = '/begin';
             return;
@@ -48,14 +40,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    console.log('[CHAT.JS] Conversation ID:', currentConversationId);
-    console.log('[CHAT.JS] Mode:', isGuest ? 'INVITÉ' : 'AUTHENTIFIÉ');
-
     if (currentConversationId) {
         await loadConversationMessages(currentConversationId);
-        socket.emit('join-conversation', currentConversationId);
     } else {
-        console.warn('[CHAT.JS] Pas de conversation ID trouvé!');
+        console.warn('[Chat] Aucun ID de conversation trouvé');
         window.location.href = '/begin';
     }
 
@@ -63,7 +51,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 socket.on('connect', () => {
-    console.log('Connected to server');
     isConnected = true;
     if (currentConversationId) {
         socket.emit('join-conversation', currentConversationId);
@@ -71,7 +58,6 @@ socket.on('connect', () => {
 });
 
 socket.on('disconnect', () => {
-    console.log('Disconnected from server');
     isConnected = false;
 });
 
@@ -104,15 +90,14 @@ socket.on('receive-message', (data) => {
 });
 
 socket.on('error', (error) => {
-    console.error('Socket error:', error);
+    console.error('[Socket] Erreur:', error);
     hideTypingIndicator();
     // Réactiver les contrôles en cas d'erreur
     enableSendControls();
     showError('Une erreur est survenue lors de l\'envoi du message', 3000);
 });
 
-socket.on('reconnect', (attemptNumber) => {
-    console.log('Reconnected after', attemptNumber, 'attempts');
+socket.on('reconnect', () => {
     if (currentConversationId) {
         socket.emit('join-conversation', currentConversationId);
     }
@@ -121,7 +106,9 @@ socket.on('reconnect', (attemptNumber) => {
 // Chargement des conversations
 async function loadConversationMessages(conversationId) {
     try {
-        const response = await fetch(`/conversations/${conversationId}/messages`);
+        const token = sessionStorage.getItem('authToken');
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        const response = await fetch(`/conversations/${conversationId}/messages`, { headers });
         if (!response.ok) throw new Error('Eche de chargement des messages');
 
         const messages = await response.json();
@@ -131,7 +118,6 @@ async function loadConversationMessages(conversationId) {
         chatContainer.innerHTML = '';
         messageSourcesMap = new Map();
         botMessageCount = 0;
-        activeMessageIndex = null;
         const sourcesContainer = document.getElementById('sources-container');
         if (sourcesContainer) {
             sourcesContainer.innerHTML = '<p class="sources-empty">Les sources citées apparaîtront ici.</p>';
@@ -150,7 +136,6 @@ async function loadConversationMessages(conversationId) {
 
         // déclance une réponse de l'ia au début de la conversation
         if (messages.length === 1 && messages[0].sender === 'user') {
-            console.log('[CHAT.JS] Premier message détecté, envoi automatique à l\'IA...');
             const token = sessionStorage.getItem('authToken');
             const email = sessionStorage.getItem('userEmail');
             const isGuest = !token;
@@ -171,7 +156,7 @@ async function loadConversationMessages(conversationId) {
             showTypingIndicator();
         }
     } catch (error) {
-        console.error('Error loading messages:', error);
+        console.error('[Chat] Erreur chargement messages:', error);
     }
 }
 
@@ -185,7 +170,7 @@ function displayMessage(sender, content, shouldScroll = true, serverSources = []
     contentDiv.className = 'message-content';
 
     // Pour les messages du bot, parser les sources
-    if (sender === 'bot' || sender === 'assistant' || sender === 'ai') {
+    if (sender === 'bot') {
         const msgIdx = botMessageCount++;
         bubble.dataset.messageIndex = msgIdx;
 
@@ -194,7 +179,6 @@ function displayMessage(sender, content, shouldScroll = true, serverSources = []
 
         const filteredSources = filterSourcesForMessage(serverSources, referencedNumbers);
         messageSourcesMap.set(msgIdx, filteredSources);
-        activeMessageIndex = msgIdx;
         showAllSources();
     } else {
         contentDiv.textContent = content;
@@ -206,7 +190,7 @@ function displayMessage(sender, content, shouldScroll = true, serverSources = []
     const footerDiv = document.createElement('div');
     footerDiv.className = 'message-footer';
 
-    if (sender === 'bot' || sender === 'assistant' || sender === 'ai') {
+    if (sender === 'bot') {
         const noteNum = note !== null && note !== undefined ? Number(note) : null;
 
         const actionsDiv = document.createElement('div');
@@ -257,9 +241,10 @@ async function voteMessage(messageId, vote, thumbUpBtn, thumbDownBtn) {
     const newNote = currentNote === vote ? null : vote;
 
     try {
+        const token = sessionStorage.getItem('authToken');
         const response = await fetch(`/messages/${messageId}/note`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ note: newNote })
         });
 
@@ -277,14 +262,10 @@ function setupEventListeners() {
     const sendBtn = document.getElementById('send-btn');
     const chatInput = document.getElementById('chat-input');
 
-    console.log('[CHAT.JS] setupEventListeners - sendBtn:', sendBtn);
-    console.log('[CHAT.JS] setupEventListeners - chatInput:', chatInput);
-
     if (sendBtn) {
         sendBtn.addEventListener('click', sendMessage);
-        console.log('[CHAT.JS] Event listener ajouté au bouton');
     } else {
-        console.error('[CHAT.JS] Bouton send-btn non trouvé!');
+        console.error('[Chat] Bouton d\'envoi introuvable');
     }
 
     if (chatInput) {
@@ -294,9 +275,8 @@ function setupEventListeners() {
                 sendMessage();
             }
         });
-        console.log('[CHAT.JS] Event listener ajouté à l\'input');
     } else {
-        console.error('[CHAT.JS] Input chat-input non trouvé!');
+        console.error('[Chat] Input de message introuvable');
     }
 }
 
@@ -334,24 +314,12 @@ function enableSendControls() {
 
 // Send message via Socket.io
 function sendMessage() {
-    console.log('[CHAT.JS] sendMessage appelée');
-
-    // Bloquer si on attend déjà une réponse
-    if (isWaitingForResponse) {
-        console.log('[CHAT.JS] En attente de réponse, envoi bloqué');
-        return;
-    }
+    if (isWaitingForResponse) return;
 
     const chatInput = document.getElementById('chat-input');
     const message = chatInput.value.trim();
 
-    console.log('[CHAT.JS] Message:', message);
-    console.log('[CHAT.JS] Conversation ID:', currentConversationId);
-
-    if (!message || !currentConversationId) {
-        console.warn('[CHAT.JS] Message vide ou pas de conversation ID');
-        return;
-    }
+    if (!message || !currentConversationId) return;
 
     if (!isConnected) {
         showError('Non connecté au serveur. Veuillez rafraîchir la page.', 3000);
@@ -441,10 +409,6 @@ function parseSourcesFromContent(content, messageIndex) {
         });
     });
 
-    // Nettoyage des blocs de sources en fin de réponse
-    content = content.replace(/^[ \t]*[-*]?\s*\*{0,2}\[?(?:Sources?\s*)?\d+\]?\*{0,2}\s*:.*$/gm, '');
-    content = content.replace(/^[ \t]*\*{0,2}Sources?\s*:?\s*\*{0,2}$/gim, '');
-    content = content.replace(/^.*(?:consulter|voir|référer|retrouver)\s+(?:les\s+)?sources?\s+(?:fournies?|ci-dessus|ci-dessous|mentionnées?|suivantes?).*$/gim, '');
     let processedContent = content.replace(/\n{3,}/g, '\n\n').trim();
 
     // Remplacement des refs par des placeholders avant le parsing markdown

@@ -3,13 +3,17 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const axios = require('axios');
+const bcrypt = require('bcrypt');
 const app = express();
 const port = 8080;
 const path = require('path');
 const pool = require('./js/libraryBDD'); // Importer le pool de connexions
 const jwt = require('jsonwebtoken');
 
-const secretKey = process.env.JWT_SECRET || 'fallback-secret-key'; // Clé secrète pour signer les JWT
+const secretKey = process.env.JWT_SECRET || 'fallback-secret-key';
+const BCRYPT_ROUNDS = 10;
+
+
 // API RAG (remplace Ollama)
 const RAG_API_URL = process.env.RAG_API_URL || 'http://127.0.0.1:5000/api/chat';
 const RAG_MODEL = 'rag-mistral';
@@ -72,9 +76,6 @@ app.get('/begin', function(req, res) {
 // Ajouter un utilisateur à la BDD
 app.post('/register', async (req, res) => {
     try {
-        console.log("Requête reçue pour ajouter un utilisateur");
-        console.log("Corps de la requête:", req.body);
-
         const client = await pool.connect();
 
         // Vérifier si l'adresse e-mail est déjà utilisée
@@ -84,24 +85,18 @@ app.post('/register', async (req, res) => {
         );
 
         if (emailCheck.rows.length > 0) {
-            console.log("Adresse e-mail déjà utilisée");
             res.status(400).json({ error: 'Adresse e-mail déjà utilisée' });
             client.release();
             return;
         }
 
+        const hashedPassword = await bcrypt.hash(req.body.mot_de_passe, BCRYPT_ROUNDS);
         const result = await client.query(
             'INSERT INTO "users" (name, email, password) VALUES ($1, $2, $3) RETURNING *',
-            [req.body.nom, req.body.email, req.body.mot_de_passe]
+            [req.body.nom, req.body.email, hashedPassword]
         );
 
         const newUser = result.rows[0];
-        console.log("INSCRIPTION RÉUSSIE");
-        console.log("Nouvel utilisateur créé:", {
-            id: newUser.id,
-            name: newUser.name,
-            email: newUser.email
-        });
         res.json(newUser);
         client.release();
     } catch (err) {
@@ -113,41 +108,28 @@ app.post('/register', async (req, res) => {
 // Route POST pour la connexion
 app.post('/login', async (req, res) => {
     try {
-        console.log("Requête reçue pour la connexion");
-        console.log("Corps de la requête:", req.body);
-
         const client = await pool.connect();
         const result = await client.query(
-            'SELECT * FROM "users" WHERE email = $1 AND password = $2',
-            [req.body.email, req.body.password]
+            'SELECT * FROM "users" WHERE email = $1',
+            [req.body.email]
         );
 
-        if (result.rows.length > 0) {
-            const user = result.rows[0];
-            console.log("CONNEXION RÉUSSIE");
-            console.log("Utilisateur connecté:", {
-                id: user.id,
-                name: user.name,
-                email: user.email
-            });
-            const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: '1h' });
-            res.status(200).json({ token });
-        } else {
-            // Regarder si le mail existe
-            const emailCheck = await client.query(
-                'SELECT * FROM "users" WHERE email = $1',
-                [req.body.email]
-            );
-            if (emailCheck.rows.length > 0) {
-                console.log("Mot de passe incorrect");
-                res.status(400).json({ error: 'Mot de passe incorrect' });
-            } else {
-                console.log("Utilisateur non trouvé");
-                res.status(400).json({ error: 'Utilisateur non trouvé' });
-            }
+        if (result.rows.length === 0) {
+            client.release();
+            return res.status(400).json({ error: 'Utilisateur non trouvé' });
         }
 
-        client.release();
+        const user = result.rows[0];
+        const passwordMatch = await bcrypt.compare(req.body.password, user.password);
+
+        if (passwordMatch) {
+            const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: '1h' });
+            client.release();
+            return res.status(200).json({ token });
+        } else {
+            client.release();
+            return res.status(400).json({ error: 'Mot de passe incorrect' });
+        }
     } catch (err) {
         console.error('Erreur lors de la connexion:', err.stack);
         res.status(500).json({ error: 'Erreur lors de la connexion' });
@@ -155,20 +137,15 @@ app.post('/login', async (req, res) => {
 });
 
 // Route pour obtenir les informations de l'utilisateur
-// Route pour obtenir les informations de l'utilisateur
 app.get('/user', authenticateToken, async (req, res) => {
     try {
         const email = req.query.email;
-        console.log("Requête reçue pour obtenir les informations de l'utilisateur");
-        console.log("Email de l'utilisateur:", email);
-
         const client = await pool.connect();
         const result = await client.query(
             'SELECT id, name, email, admin FROM "users" WHERE email = $1',
             [email]
         );
 
-        console.log("Résultat de la requête:", result.rows[0]);
         res.json(result.rows[0]);
         client.release();
     } catch (err) {
@@ -194,6 +171,17 @@ function authenticateToken(req, res, next) {
 app.get('/protected', authenticateToken, (req, res) => {
     res.json({ message: 'Accès autorisé', user: req.user });
 });
+
+//vérifie le token si présent, continue sans erreur sinon
+function optionalAuthenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) { req.user = null; return next(); }
+    jwt.verify(token, secretKey, (err, user) => {
+        req.user = err ? null : user;
+        next();
+    });
+}
 
 // vérification si l'utilisateur est admin
 async function isAdmin(req, res, next) {
@@ -487,8 +475,6 @@ app.get('/api/user/export-data', authenticateToken, async (req, res) => {
 app.post('/change-password', authenticateToken, async (req, res) => {
     try {
         const { email, oldPassword, newPassword } = req.body;
-        console.log("Requête reçue pour changer le mot de passe");
-        console.log("Email:", email);
 
         if (!email || !oldPassword || !newPassword) {
             return res.status(400).json({ error: 'Tous les champs sont requis' });
@@ -498,23 +484,28 @@ app.post('/change-password', authenticateToken, async (req, res) => {
 
         // Vérifier que l'ancien mot de passe est correct
         const userCheck = await client.query(
-            'SELECT * FROM "users" WHERE email = $1 AND password = $2',
-            [email, oldPassword]
+            'SELECT * FROM "users" WHERE email = $1',
+            [email]
         );
 
         if (userCheck.rows.length === 0) {
-            console.log("Ancien mot de passe incorrect");
+            client.release();
+            return res.status(400).json({ error: 'Utilisateur non trouvé' });
+        }
+
+        const passwordMatch = await bcrypt.compare(oldPassword, userCheck.rows[0].password);
+        if (!passwordMatch) {
             client.release();
             return res.status(400).json({ error: 'Ancien mot de passe incorrect' });
         }
 
-        // Mettre à jour le mot de passe
+        // Hasher et mettre à jour le nouveau mot de passe
+        const hashedNew = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
         await client.query(
             'UPDATE "users" SET password = $1 WHERE email = $2',
-            [newPassword, email]
+            [hashedNew, email]
         );
 
-        console.log("Mot de passe modifié avec succès");
         client.release();
         res.json({ message: 'Mot de passe modifié avec succès' });
     } catch (err) {
@@ -558,10 +549,11 @@ app.post('/conversations', async (req, res) => {
 });
 
 // Récupérer les discussions d'un utilisateur
-app.get('/conversations/user/:userId', async (req, res) => {
+app.get('/conversations/user/:userId', authenticateToken, async (req, res) => {
     try {
         const userId = parseInt(req.params.userId);
         if (isNaN(userId)) return res.status(400).json({ error: 'ID utilisateur invalide' });
+        if (req.user.id !== userId) return res.status(403).json({ error: 'Accès refusé' });
 
         const client = await pool.connect();
         const result = await client.query(
@@ -577,12 +569,38 @@ app.get('/conversations/user/:userId', async (req, res) => {
 });
 
 // Récupérer les messages d'une conversation
-app.get('/conversations/:conversationId/messages', async (req, res) => {
+app.get('/conversations/:conversationId/messages', optionalAuthenticateToken, async (req, res) => {
     try {
+        const convId = req.params.conversationId;
         const client = await pool.connect();
+
+        const convCheck = await client.query(
+            'SELECT user_id FROM conversations WHERE id = $1',
+            [convId]
+        );
+        if (convCheck.rows.length === 0) {
+            client.release();
+            return res.status(404).json({ error: 'Conversation non trouvée' });
+        }
+
+        const convUserId = convCheck.rows[0].user_id;
+        if (req.user) {
+            // Utilisateur connecté
+            if (convUserId !== req.user.id) {
+                client.release();
+                return res.status(403).json({ error: 'Accès refusé' });
+            }
+        } else {
+            // Invité
+            if (convUserId !== null) {
+                client.release();
+                return res.status(403).json({ error: 'Accès refusé' });
+            }
+        }
+
         const result = await client.query(
             'SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
-            [req.params.conversationId]
+            [convId]
         );
         client.release();
         res.json(result.rows);
@@ -692,7 +710,7 @@ app.get('/api/user/archived-conversations', authenticateToken, async (req, res) 
 });
 
 // Voter pour un message bot (1 = upvote, -1 = downvote)
-app.patch('/messages/:messageId/note', async (req, res) => {
+app.patch('/messages/:messageId/note', authenticateToken, async (req, res) => {
     try {
         const { messageId } = req.params;
         const { note } = req.body;
@@ -823,12 +841,9 @@ const io = new Server(server, {
 
 // Socket.io handlers
 io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
-
     // Rejoindre une conversation
     socket.on('join-conversation', (conversationId) => {
         socket.join(`conversation-${conversationId}`);
-        console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
     });
 
     // Gérer l'envoi de messages
@@ -907,7 +922,6 @@ io.on('connection', (socket) => {
                 let aiMessage;
                 let aiSources = [];
                 try {
-                    console.log('Calling RAG API...');
                     const ragResponse = await axios.post(RAG_API_URL, {
                         model: RAG_MODEL,
                         messages: messages,
@@ -918,7 +932,6 @@ io.on('connection', (socket) => {
 
                     aiMessage = ragResponse.data.message.content;
                     aiSources = ragResponse.data.sources || [];
-                    console.log('RAG response received with', aiSources.length, 'sources');
 
                     // Nettoyage des blocs de sources en fin de réponse
                     aiMessage = aiMessage.replace(/^[ \t]*[-*]?\s*\*{0,2}\[?(?:Sources?\s*)?\d+\]?\*{0,2}\s*:.*$/gm, '');
@@ -927,7 +940,7 @@ io.on('connection', (socket) => {
                     aiMessage = aiMessage.replace(/\n{3,}/g, '\n\n').trim();
 
                 } catch (ragError) {
-                    console.error('RAG API error:', ragError.message);
+                    console.error('[RAG] Erreur API:', ragError.message);
                     aiMessage = "Désolé, le service IA est temporairement indisponible. Veuillez réessayer dans quelques instants.";
                     aiSources = [];
                 }
@@ -959,14 +972,12 @@ io.on('connection', (socket) => {
             }
 
         } catch (error) {
-            console.error('Error processing message:', error);
+            console.error('[Socket] Erreur traitement message:', error);
             socket.emit('error', { message: 'Erreur lors du traitement du message' });
         }
     });
 
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
-    });
+    socket.on('disconnect', () => {});
 });
 
 server.listen(port, () => {

@@ -36,9 +36,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // NOTE: L'écouteur pour start-chat-btn a été supprimé car il est géré dans begin.js
-    // qui crée la conversation avant de rediriger vers /chat
-
     //Si il fait un click peut importe ou sur on verifier le jeton
     window.addEventListener('click', function() {
         updateInfo();
@@ -112,7 +109,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     function registerAccount() {
-        console.log('registerAccount');
         const username = document.getElementById('register-username').value;
         const email = document.getElementById('register-email').value;
         const password = document.getElementById('register-password').value;
@@ -143,8 +139,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const data = { nom: username, email: email, mot_de_passe: password };
 
-        console.log('Sending data:', data);
-
         fetch('/register', {
             method: 'POST',
             headers: {
@@ -167,7 +161,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch((error) => {
-            console.error('Error:', error);
+            console.error('[Inscription] Erreur:', error.message);
             showError(error.message, 3000);
         });
     }
@@ -238,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }, 1500);
                 })
                 .catch((error) => {
-                    console.error('Error:', error);
+                    console.error('[Connexion] Erreur:', error.message);
                     showError(error.message, 3000);
                 });
             }
@@ -318,7 +312,7 @@ async function loadDiscussions() {
         if (!userData || !userData.id) return;
 
         const [conversationsResponse, archivedResponse] = await Promise.all([
-            fetch(`/conversations/user/${userData.id}`),
+            fetch(`/conversations/user/${userData.id}`, { headers: { 'Authorization': `Bearer ${token}` } }),
             fetch('/api/user/archived-conversations', { headers: { 'Authorization': `Bearer ${token}` } })
         ]);
         let conversations = await conversationsResponse.json();
