@@ -441,6 +441,24 @@ app.post('/change-password', authenticateToken, async (req, res) => {
     }
 });
 
+// Modifier le nom d'utilisateur
+app.patch('/user/name', authenticateToken, async (req, res) => {
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Nom requis' });
+
+    let client;
+    try {
+        client = await pool.connect();
+        await client.query('UPDATE "users" SET name = $1 WHERE id = $2', [name.trim(), req.user.id]);
+        res.json({ success: true, name: name.trim() });
+    } catch (err) {
+        console.error('Erreur modification nom:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
 // Créer une discussion et stocker le premier message
 app.post('/conversations', async (req, res) => {
     const { user_id, first_message } = req.body;

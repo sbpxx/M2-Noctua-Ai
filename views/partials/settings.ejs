@@ -81,7 +81,8 @@
 
                     <div class="settings-group">
                         <label class="settings-label">Nom d'utilisateur</label>
-                        <input type="text" class="settings-input" id="profile-username" placeholder="Votre nom">
+                        <input type="text" class="settings-input" id="profile-username" placeholder="Votre nom" readonly>
+                        <button class="settings-btn-secondary" id="change-username-btn" type="button" style="margin-top: 8px;">Modifier le nom</button>
                     </div>
 
                     <div class="settings-group">
@@ -229,6 +230,19 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal modification nom d'utilisateur -->
+<div class="modal-rename" id="usernameModal" style="display: none;">
+    <div class="modal-overlay" onclick="closeUsernameModal()"></div>
+    <div class="rename-modal-content">
+        <h3><i class="ri-user-line"></i> Modifier le nom</h3>
+        <input type="text" id="username-modal-input" placeholder="Nouveau nom..." autocomplete="off" />
+        <div class="rename-actions">
+            <button class="rename-cancel-btn" onclick="closeUsernameModal()">Annuler</button>
+            <button class="rename-confirm-btn" id="username-confirm-btn">Valider</button>
         </div>
     </div>
 </div>

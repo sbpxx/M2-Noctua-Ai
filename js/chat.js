@@ -136,7 +136,6 @@ async function loadConversationMessages(conversationId) {
 
         // déclance une réponse de l'ia au début de la conversation
         if (messages.length === 1 && messages[0].sender === 'user') {
-            const token = sessionStorage.getItem('authToken');
             const email = sessionStorage.getItem('userEmail');
             const isGuest = !token;
 

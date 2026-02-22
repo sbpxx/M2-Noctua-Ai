@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         const userData = await userResponse.json();
                         userId = userData.id;
                     } else {
-                            sessionStorage.removeItem('authToken');
+                        sessionStorage.removeItem('authToken');
                         sessionStorage.removeItem('userEmail');
                         sessionStorage.removeItem('userName');
                     }

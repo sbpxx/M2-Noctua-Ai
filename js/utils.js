@@ -38,12 +38,7 @@ async function verifyToken() {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error);
-        }
-
-        await response.json();
+        if (!response.ok) throw new Error();
         return true;
     } catch {
         return false;
@@ -159,6 +154,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Gestion de la navigation dans les paramètres
     initSettingsNavigation();
+
+    // Modal modification nom d'utilisateur
+    const changeUsernameBtn = document.getElementById('change-username-btn');
+    if (changeUsernameBtn) changeUsernameBtn.addEventListener('click', openUsernameModal);
+
+    const usernameConfirmBtn = document.getElementById('username-confirm-btn');
+    if (usernameConfirmBtn) usernameConfirmBtn.addEventListener('click', confirmUsernameChange);
+
+    const usernameModalInput = document.getElementById('username-modal-input');
+    if (usernameModalInput) {
+        usernameModalInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') confirmUsernameChange();
+            if (e.key === 'Escape') closeUsernameModal();
+        });
+    }
 });
 
 // fonction pour ouvrir la modale paramètres
@@ -217,13 +227,56 @@ function initSettingsNavigation() {
     initPasswordChange();
 }
 
-// fonction pour charger l'email de l'utilisateur
+// fonction pour charger l'email et le nom de l'utilisateur
 async function loadUserEmail() {
     const userEmail = sessionStorage.getItem('userEmail');
+    const userName = sessionStorage.getItem('userName');
     const emailInput = document.getElementById('profile-email');
+    const usernameInput = document.getElementById('profile-username');
 
-    if (emailInput && userEmail) {
-        emailInput.value = userEmail;
+    if (emailInput && userEmail) emailInput.value = userEmail;
+    if (usernameInput && userName) usernameInput.value = userName;
+}
+
+// Modification du nom d'utilisateur
+function openUsernameModal() {
+    const modal = document.getElementById('usernameModal');
+    const input = document.getElementById('username-modal-input');
+    if (!modal || !input) return;
+
+    input.value = sessionStorage.getItem('userName') || '';
+    modal.style.display = 'flex';
+    setTimeout(() => { input.focus(); input.select(); }, 50);
+}
+
+function closeUsernameModal() {
+    const modal = document.getElementById('usernameModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function confirmUsernameChange() {
+    const token = sessionStorage.getItem('authToken');
+    const input = document.getElementById('username-modal-input');
+    const newName = input ? input.value.trim() : '';
+
+    if (!newName) { showError('Le nom ne peut pas être vide', 3000); return; }
+
+    try {
+        const res = await fetch('/user/name', {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newName })
+        });
+        if (!res.ok) throw new Error();
+
+        sessionStorage.setItem('userName', newName);
+        const usernameInput = document.getElementById('profile-username');
+        if (usernameInput) usernameInput.value = newName;
+        updateUserButton(true, newName);
+        showSuccess('Nom modifié avec succès', 2000);
+        closeUsernameModal();
+    } catch {
+        showError('Erreur lors de la modification du nom', 3000);
     }
 }
 

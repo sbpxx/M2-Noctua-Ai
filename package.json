@@ -4,7 +4,7 @@
   "description": "Projet tutoré M2",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test.js"
   },
   "author": "",
   "license": "ISC",
@@ -15,7 +15,6 @@
     "ejs": "^3.1.10",
     "express": "^4.21.0",
     "jsonwebtoken": "^9.0.2",
-    "mysql": "^2.18.1",
     "pg": "^8.13.0",
     "socket.io": "^4.8.3"
   }
