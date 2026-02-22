@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 
-    function registerAccount() {
+    async function registerAccount() {
         const username = document.getElementById('register-username').value;
         const email = document.getElementById('register-email').value;
         const password = document.getElementById('register-password').value;
@@ -139,31 +139,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const data = { nom: username, email: email, mot_de_passe: password };
 
-        fetch('/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        })
-        .then(response => {
+        try {
+            const response = await fetch('/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
             if (!response.ok) {
-                return response.json().then(data => { throw new Error(data.error); });
+                showError(result.error, 3000);
+                return;
             }
-            return response.json();
-        })
-        .then(data => {
-            if (data.error) {
-                showError(data.error, 3000);
-            } else {
-                // Rediriger vers la page de connexion ou une autre page
-                window.location.href = '/';
-            }
-        })
-        .catch((error) => {
+            window.location.href = '/';
+        } catch (error) {
             console.error('[Inscription] Erreur:', error.message);
             showError(error.message, 3000);
-        });
+        }
     }
 
 
@@ -180,66 +171,43 @@ document.addEventListener('DOMContentLoaded', function() {
     
 
     
-    function connectAccount() {
+    async function connectAccount() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        const data = { email: email, password: password };
 
-        fetch('/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(data => { throw new Error(data.error); });
+        try {
+            const loginRes = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const loginData = await loginRes.json();
+            if (!loginRes.ok) {
+                showError(loginData.error, 3000);
+                return;
             }
-            return response.json();
-        })
-        .then(data => {
-            if (data.error) {
-                showError(data.error, 3000);
-            } else {
-                // Stocker le jeton dans sessionStorage
-                sessionStorage.setItem('authToken', data.token);
-                
-                // Récupérer les informations de l'utilisateur
-                fetch(`/user?email=${encodeURIComponent(email)}`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${data.token}`
-                    }
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(data => { throw new Error(data.error); });
-                    }
-                    return response.json();
-                })
-                .then(userData => {
 
-                    sessionStorage.setItem('userName', userData.name);
-                    sessionStorage.setItem('userEmail', userData.email);
-                    sessionStorage.setItem('userAdmin', userData.admin ? 'true' : 'false');
+            sessionStorage.setItem('authToken', loginData.token);
 
-                    showSuccess('Connexion réussie. Bienvenue!', 1500);
-
-                    // Redirection
-                    setTimeout(() => {
-                        window.location.href = '/begin';
-                    }, 1500);
-                })
-                .catch((error) => {
-                    console.error('[Connexion] Erreur:', error.message);
-                    showError(error.message, 3000);
-                });
+            const userRes = await fetch(`/user?email=${encodeURIComponent(email)}`, {
+                headers: { 'Authorization': `Bearer ${loginData.token}` }
+            });
+            const userData = await userRes.json();
+            if (!userRes.ok) {
+                showError(userData.error, 3000);
+                return;
             }
-        })
-        .catch((error) => {
+
+            sessionStorage.setItem('userName', userData.name);
+            sessionStorage.setItem('userEmail', userData.email);
+            sessionStorage.setItem('userAdmin', userData.admin ? 'true' : 'false');
+
+            showSuccess('Connexion réussie. Bienvenue!', 1500);
+            setTimeout(() => { window.location.href = '/begin'; }, 1500);
+        } catch (error) {
+            console.error('[Connexion] Erreur:', error.message);
             showError(error.message, 3000);
-        });
+        }
     }
 
 
@@ -590,7 +558,7 @@ async function openArchiveModal() {
     const resultsEl = document.getElementById('archive-results');
     if (!modal) return;
 
-    modal.classList.add('open');
+    modal.style.display = 'flex';
 
     if (!token) {
         resultsEl.innerHTML = '<p class="archive-empty-state">Vous devez être connecté.</p>';
@@ -630,7 +598,7 @@ async function openArchiveModal() {
 
 function closeArchiveModal() {
     const modal = document.getElementById('archiveModal');
-    if (modal) modal.classList.remove('open');
+    if (modal) modal.style.display = 'none';
 }
 
 // ─── RENAME TITRE ─────────────────────────────────────────────────────────────────
@@ -644,13 +612,13 @@ function openRenameModal(conversationId, currentTitle) {
     if (!modal || !input) return;
 
     input.value = currentTitle || '';
-    modal.classList.add('open');
+    modal.style.display = 'flex';
     setTimeout(() => { input.focus(); input.select(); }, 50);
 }
 
 function closeRenameModal() {
     const modal = document.getElementById('renameModal');
-    if (modal) modal.classList.remove('open');
+    if (modal) modal.style.display = 'none';
     _renameConversationId = null;
 }
 

@@ -107,15 +107,15 @@ app.post('/register', async (req, res) => {
 
 // Route POST pour la connexion
 app.post('/login', async (req, res) => {
+    let client;
     try {
-        const client = await pool.connect();
+        client = await pool.connect();
         const result = await client.query(
             'SELECT * FROM "users" WHERE email = $1',
             [req.body.email]
         );
 
         if (result.rows.length === 0) {
-            client.release();
             return res.status(400).json({ error: 'Utilisateur non trouvé' });
         }
 
@@ -124,33 +124,33 @@ app.post('/login', async (req, res) => {
 
         if (passwordMatch) {
             const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: '1h' });
-            client.release();
             return res.status(200).json({ token });
         } else {
-            client.release();
             return res.status(400).json({ error: 'Mot de passe incorrect' });
         }
     } catch (err) {
         console.error('Erreur lors de la connexion:', err.stack);
         res.status(500).json({ error: 'Erreur lors de la connexion' });
+    } finally {
+        if (client) client.release();
     }
 });
 
 // Route pour obtenir les informations de l'utilisateur
 app.get('/user', authenticateToken, async (req, res) => {
+    let client;
     try {
-        const email = req.query.email;
-        const client = await pool.connect();
+        client = await pool.connect();
         const result = await client.query(
             'SELECT id, name, email, admin FROM "users" WHERE email = $1',
-            [email]
+            [req.query.email]
         );
-
         res.json(result.rows[0]);
-        client.release();
     } catch (err) {
         console.error('Erreur lors de la récupération des informations de l\'utilisateur:', err.stack);
         res.status(500).json({ error: 'Erreur lors de la récupération des informations de l\'utilisateur' });
+    } finally {
+        if (client) client.release();
     }
 });
 
@@ -265,107 +265,87 @@ app.post('/api/admin/mistral/stop', authenticateToken, isAdmin, (req, res) => {
 
 // Route pour récupérer les utilisateurs (admin)
 app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
+    let client;
     try {
         const search = req.query.search || '';
         const limit = 25;
-
-        const client = await pool.connect();
-
-        let result;
-        if (search) {
-            result = await client.query(
+        client = await pool.connect();
+        const result = search
+            ? await client.query(
                 'SELECT id, name, email, admin FROM "users" WHERE email ILIKE $1 ORDER BY email ASC LIMIT $2',
                 [`%${search}%`, limit]
-            );
-        } else {
-            result = await client.query(
+              )
+            : await client.query(
                 'SELECT id, name, email, admin FROM "users" ORDER BY email ASC LIMIT $1',
                 [limit]
-            );
-        }
-
-        client.release();
+              );
         res.json(result.rows);
     } catch (error) {
         console.error('Erreur récupération utilisateurs:', error);
         res.status(500).json({ error: 'Erreur lors de la récupération des utilisateurs' });
+    } finally {
+        if (client) client.release();
     }
 });
 
 // Route pour modifier le statut admin d'un utilisateur
 app.post('/api/admin/users/:userId/toggle-admin', authenticateToken, isAdmin, async (req, res) => {
+    const targetUserId = req.params.userId;
+    const currentUserId = req.user.id;
+
+    if (parseInt(targetUserId) === parseInt(currentUserId)) {
+        return res.status(400).json({ error: 'Vous ne pouvez pas modifier votre propre statut admin' });
+    }
+
+    let client;
     try {
-        const targetUserId = req.params.userId;
-        const currentUserId = req.user.id;
-
-        // Empêche de modifier son propre statut 
-        if (parseInt(targetUserId) === parseInt(currentUserId)) {
-            return res.status(400).json({ error: 'Vous ne pouvez pas modifier votre propre statut admin' });
-        }
-
-        const client = await pool.connect();
-
-        // Récupérer le statut actuel
+        client = await pool.connect();
         const userResult = await client.query(
             'SELECT id, name, email, admin FROM "users" WHERE id = $1',
             [targetUserId]
         );
 
         if (userResult.rows.length === 0) {
-            client.release();
             return res.status(404).json({ error: 'Utilisateur non trouvé' });
         }
 
-        const currentAdmin = userResult.rows[0].admin;
-        const newAdmin = !currentAdmin;
-        const targetEmail = userResult.rows[0].email;
+        const newAdmin = !userResult.rows[0].admin;
+        await client.query('UPDATE "users" SET admin = $1 WHERE id = $2', [newAdmin, targetUserId]);
 
-        // Mettre à jour le statut
-        await client.query(
-            'UPDATE "users" SET admin = $1 WHERE id = $2',
-            [newAdmin, targetUserId]
-        );
-
-        client.release();
-
-        // Enregistrer le log
         const actionMessage = newAdmin
-            ? `Promotion admin de l'utilisateur ${targetEmail}`
-            : `Retrait des droits admin de l'utilisateur ${targetEmail}`;
+            ? `Promotion admin de l'utilisateur ${userResult.rows[0].email}`
+            : `Retrait des droits admin de l'utilisateur ${userResult.rows[0].email}`;
         logAdminAction(currentUserId, actionMessage);
 
         res.json({
             success: true,
-            user: {
-                id: userResult.rows[0].id,
-                name: userResult.rows[0].name,
-                email: userResult.rows[0].email,
-                admin: newAdmin
-            },
+            user: { id: userResult.rows[0].id, name: userResult.rows[0].name, email: userResult.rows[0].email, admin: newAdmin },
             message: newAdmin ? 'Utilisateur promu admin' : 'Droits admin retirés'
         });
     } catch (error) {
         console.error('Erreur modification admin:', error);
         res.status(500).json({ error: 'Erreur lors de la modification' });
+    } finally {
+        if (client) client.release();
     }
 });
 
 // Route pour récupérer les logs admin
 app.get('/api/admin/logs', authenticateToken, isAdmin, async (req, res) => {
+    let client;
     try {
         const limit = parseInt(req.query.limit) || 50;
-        const client = await pool.connect();
-
+        client = await pool.connect();
         const result = await client.query(
             'SELECT id, user_email, action, created_at FROM admin_logs ORDER BY created_at DESC LIMIT $1',
             [limit]
         );
-
-        client.release();
         res.json(result.rows);
     } catch (error) {
         console.error('Erreur récupération logs:', error);
         res.status(500).json({ error: 'Erreur lors de la récupération des logs' });
+    } finally {
+        if (client) client.release();
     }
 });
 
@@ -473,267 +453,235 @@ app.get('/api/user/export-data', authenticateToken, async (req, res) => {
 
 // Route pour changer le mot de passe
 app.post('/change-password', authenticateToken, async (req, res) => {
+    const { email, oldPassword, newPassword } = req.body;
+
+    if (!email || !oldPassword || !newPassword) {
+        return res.status(400).json({ error: 'Tous les champs sont requis' });
+    }
+
+    let client;
     try {
-        const { email, oldPassword, newPassword } = req.body;
-
-        if (!email || !oldPassword || !newPassword) {
-            return res.status(400).json({ error: 'Tous les champs sont requis' });
-        }
-
-        const client = await pool.connect();
-
-        // Vérifier que l'ancien mot de passe est correct
-        const userCheck = await client.query(
-            'SELECT * FROM "users" WHERE email = $1',
-            [email]
-        );
+        client = await pool.connect();
+        const userCheck = await client.query('SELECT * FROM "users" WHERE email = $1', [email]);
 
         if (userCheck.rows.length === 0) {
-            client.release();
             return res.status(400).json({ error: 'Utilisateur non trouvé' });
         }
 
         const passwordMatch = await bcrypt.compare(oldPassword, userCheck.rows[0].password);
         if (!passwordMatch) {
-            client.release();
             return res.status(400).json({ error: 'Ancien mot de passe incorrect' });
         }
 
-        // Hasher et mettre à jour le nouveau mot de passe
         const hashedNew = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-        await client.query(
-            'UPDATE "users" SET password = $1 WHERE email = $2',
-            [hashedNew, email]
-        );
-
-        client.release();
+        await client.query('UPDATE "users" SET password = $1 WHERE email = $2', [hashedNew, email]);
         res.json({ message: 'Mot de passe modifié avec succès' });
     } catch (err) {
         console.error('Erreur lors du changement de mot de passe:', err.stack);
         res.status(500).json({ error: 'Erreur lors du changement de mot de passe' });
+    } finally {
+        if (client) client.release();
     }
 });
 
 // Créer une discussion et stocker le premier message
 app.post('/conversations', async (req, res) => {
+    const { user_id, first_message } = req.body;
+
+    if (!first_message || !first_message.trim()) {
+        return res.status(400).json({ error: 'Message requis' });
+    }
+
+    let client;
     try {
-        const { user_id, first_message } = req.body;
-
-        // Validation du message
-        if (!first_message || !first_message.trim()) {
-            return res.status(400).json({ error: 'Message requis' });
-        }
-
-        const client = await pool.connect();
-
-        const title = first_message.substring(0, 50);
-        // Accepter NULL pour les invités
+        client = await pool.connect();
         const conversationResult = await client.query(
             'INSERT INTO conversations (user_id, title, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *',
-            [user_id || null, title]
+            [user_id || null, first_message.substring(0, 50)]
         );
-
         const conversation = conversationResult.rows[0];
-
         await client.query(
             'INSERT INTO messages (conversation_id, sender, content, created_at) VALUES ($1, $2, $3, NOW())',
             [conversation.id, 'user', first_message]
         );
-
-        client.release();
         res.json(conversation);
     } catch (err) {
         console.error('Erreur:', err);
         res.status(500).json({ error: 'Erreur lors de la création de la conversation' });
+    } finally {
+        if (client) client.release();
     }
 });
 
 // Récupérer les discussions d'un utilisateur
 app.get('/conversations/user/:userId', authenticateToken, async (req, res) => {
-    try {
-        const userId = parseInt(req.params.userId);
-        if (isNaN(userId)) return res.status(400).json({ error: 'ID utilisateur invalide' });
-        if (req.user.id !== userId) return res.status(403).json({ error: 'Accès refusé' });
+    const userId = parseInt(req.params.userId);
+    if (isNaN(userId)) return res.status(400).json({ error: 'ID utilisateur invalide' });
+    if (req.user.id !== userId) return res.status(403).json({ error: 'Accès refusé' });
 
-        const client = await pool.connect();
+    let client;
+    try {
+        client = await pool.connect();
         const result = await client.query(
             'SELECT * FROM conversations WHERE user_id = $1 ORDER BY updated_at DESC',
             [userId]
         );
-        client.release();
         res.json(result.rows);
     } catch (err) {
         console.error('Erreur:', err);
         res.status(500).json({ error: 'Erreur' });
+    } finally {
+        if (client) client.release();
     }
 });
 
 // Récupérer les messages d'une conversation
 app.get('/conversations/:conversationId/messages', optionalAuthenticateToken, async (req, res) => {
+    let client;
     try {
         const convId = req.params.conversationId;
-        const client = await pool.connect();
+        client = await pool.connect();
 
         const convCheck = await client.query(
-            'SELECT user_id FROM conversations WHERE id = $1',
-            [convId]
+            'SELECT user_id FROM conversations WHERE id = $1', [convId]
         );
         if (convCheck.rows.length === 0) {
-            client.release();
             return res.status(404).json({ error: 'Conversation non trouvée' });
         }
 
         const convUserId = convCheck.rows[0].user_id;
         if (req.user) {
-            // Utilisateur connecté
-            if (convUserId !== req.user.id) {
-                client.release();
-                return res.status(403).json({ error: 'Accès refusé' });
-            }
+            if (convUserId !== req.user.id) return res.status(403).json({ error: 'Accès refusé' });
         } else {
-            // Invité
-            if (convUserId !== null) {
-                client.release();
-                return res.status(403).json({ error: 'Accès refusé' });
-            }
+            if (convUserId !== null) return res.status(403).json({ error: 'Accès refusé' });
         }
 
         const result = await client.query(
-            'SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
-            [convId]
+            'SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC', [convId]
         );
-        client.release();
         res.json(result.rows);
     } catch (err) {
         console.error('Erreur:', err);
         res.status(500).json({ error: 'Erreur lors de la récupération des messages' });
+    } finally {
+        if (client) client.release();
     }
 });
 
 // Modifier le titre d'une conversation
 app.patch('/conversations/:id/title', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { title } = req.body;
+
+    if (!title || !title.trim()) {
+        return res.status(400).json({ error: 'Titre requis' });
+    }
+
+    let client;
     try {
-        const { id } = req.params;
-        const { title } = req.body;
-        const userId = req.user.id;
-
-        if (!title || !title.trim()) {
-            return res.status(400).json({ error: 'Titre requis' });
-        }
-
-        const client = await pool.connect();
+        client = await pool.connect();
         const check = await client.query(
-            'SELECT id FROM conversations WHERE id = $1 AND user_id = $2',
-            [id, userId]
+            'SELECT id FROM conversations WHERE id = $1 AND user_id = $2', [id, req.user.id]
         );
-
         if (check.rows.length === 0) {
-            client.release();
             return res.status(404).json({ error: 'Conversation non trouvée' });
         }
-
         await client.query('UPDATE conversations SET title = $1 WHERE id = $2', [title.trim(), id]);
-        client.release();
         res.json({ success: true, title: title.trim() });
     } catch (err) {
         console.error('Erreur modification titre:', err);
         res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
     }
 });
 
 // Archiver une conversation
 app.post('/conversations/:id/archive', authenticateToken, async (req, res) => {
+    let client;
     try {
-        const conversationId = parseInt(req.params.id);
-        const userId = req.user.id;
-
-        const client = await pool.connect();
+        client = await pool.connect();
         await client.query(
             `UPDATE users SET archived_conversations = array_append(archived_conversations, $1)
              WHERE id = $2 AND NOT ($1 = ANY(COALESCE(archived_conversations, '{}'::integer[])))`,
-            [conversationId, userId]
+            [parseInt(req.params.id), req.user.id]
         );
-        client.release();
         res.json({ success: true });
     } catch (err) {
         console.error('Erreur archivage:', err);
         res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
     }
 });
 
 // Désarchiver une conversation
 app.delete('/conversations/:id/archive', authenticateToken, async (req, res) => {
+    let client;
     try {
-        const conversationId = parseInt(req.params.id);
-        const userId = req.user.id;
-
-        const client = await pool.connect();
+        client = await pool.connect();
         await client.query(
             'UPDATE users SET archived_conversations = array_remove(archived_conversations, $1) WHERE id = $2',
-            [conversationId, userId]
+            [parseInt(req.params.id), req.user.id]
         );
-        client.release();
         res.json({ success: true });
     } catch (err) {
         console.error('Erreur désarchivage:', err);
         res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
     }
 });
 
 // Récupérer les conversations archivées
 app.get('/api/user/archived-conversations', authenticateToken, async (req, res) => {
+    let client;
     try {
-        const userId = req.user.id;
-        const client = await pool.connect();
-
+        client = await pool.connect();
         const userResult = await client.query(
             `SELECT COALESCE(archived_conversations, '{}'::integer[]) AS archived_conversations FROM users WHERE id = $1`,
-            [userId]
+            [req.user.id]
         );
         const archivedIds = userResult.rows[0]?.archived_conversations || [];
 
-        if (archivedIds.length === 0) {
-            client.release();
-            return res.json([]);
-        }
+        if (archivedIds.length === 0) return res.json([]);
 
         const convsResult = await client.query(
             'SELECT id, title, created_at, updated_at FROM conversations WHERE id = ANY($1) ORDER BY updated_at DESC',
             [archivedIds]
         );
-        client.release();
         res.json(convsResult.rows);
     } catch (err) {
         console.error('Erreur récupération archives:', err);
         res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
     }
 });
 
 // Voter pour un message bot (1 = upvote, -1 = downvote)
 app.patch('/messages/:messageId/note', authenticateToken, async (req, res) => {
+    const { note } = req.body;
+    if (note !== 1 && note !== -1 && note !== null) {
+        return res.status(400).json({ error: 'Note invalide (1, -1 ou null)' });
+    }
+
+    let client;
     try {
-        const { messageId } = req.params;
-        const { note } = req.body;
-
-        if (note !== 1 && note !== -1 && note !== null) {
-            return res.status(400).json({ error: 'Note invalide (1, -1 ou null)' });
-        }
-
-        const client = await pool.connect();
+        client = await pool.connect();
         const result = await client.query(
             'UPDATE messages SET note = $1 WHERE id = $2 RETURNING id, note',
-            [note, messageId]
+            [note, req.params.messageId]
         );
-        client.release();
-
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Message non trouvé' });
         }
-
         res.json({ success: true, id: result.rows[0].id, note: result.rows[0].note });
     } catch (err) {
         console.error('Erreur vote message:', err);
         res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
     }
 });
 
