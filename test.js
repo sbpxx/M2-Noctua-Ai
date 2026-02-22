@@ -289,11 +289,16 @@ async function testAdminRoutes(token) {
     }
 }
 
-async function testMessages(token, convId) {
-    if (!token || !convId) return;
+async function testMessages(token) {
+    if (!token) return;
     console.log('\n\x1b[34mVotes (note)\x1b[0m');
 
-    const msgs = await req('GET', `/conversations/${convId}/messages`, null, token);
+    const userInfo = await req('GET', `/user?email=${encodeURIComponent(TEST_EMAIL)}`, null, token);
+    const userId = userInfo.json?.id;
+    const conv = await req('POST', '/conversations', { user_id: userId, first_message: 'Test vote' });
+    if (!conv.json?.id) { check('Conversation pour votes créée', false, 'échec création'); return; }
+
+    const msgs = await req('GET', `/conversations/${conv.json.id}/messages`, null, token);
     const msg = msgs.json?.[0];
     if (!msg) { check('Message disponible pour voter', false, 'aucun message'); return; }
 
@@ -342,9 +347,25 @@ async function testUserFeatures(token) {
     check('Refus changement avec mauvais ancien mdp', badChange.status === 400);
 }
 
-async function cleanup(token) {
+async function cleanup(token, config) {
     if (!token) return;
     await req('DELETE', '/api/user/conversations/all', null, token);
+
+    const pool = new Pool({
+        host: config.DB_HOST, user: config.DB_USER, password: config.DB_PASS,
+        database: config.DB_NAME, port: config.PORT,
+        ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5000
+    });
+    let client;
+    try {
+        client = await pool.connect();
+        await client.query('DELETE FROM "users" WHERE email LIKE \'%@noctua-test.fr\'');
+    } catch (e) {
+        console.error('Erreur nettoyage comptes test:', e.message);
+    } finally {
+        if (client) client.release();
+        await pool.end();
+    }
 }
 
 async function main() {
@@ -368,9 +389,9 @@ async function main() {
         const convId = await testConversations(token);
         await testAccessControl(token);
         await testAdminRoutes(token);
-        await testMessages(token, convId);
+        await testMessages(token);
         await testUserFeatures(token);
-        await cleanup(token);
+        await cleanup(token, config);
     }
 
     const total = ok + fail;

@@ -9,7 +9,7 @@
     <script src="../js/utils.js"></script>
     <title>Accueil</title>
 </head>
-<body>
+<body class="page-accueil">
     <%- include('partials/login') %>
     <%- include('partials/message') %>
     
@@ -36,7 +36,7 @@
                         <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
-                <button class="btn-secondary">
+                <button class="btn-secondary" id="btn-stats">
                     <span>Voir les Statistiques</span>
                 </button>
             </div>
@@ -90,5 +90,47 @@
             <div class="shape shape-3"></div>
         </div>
     </main>
+
+    <section id="stats-section" class="stats-section">
+        <h2 class="stats-title">Noctua en chiffres</h2>
+        <p class="stats-subtitle">Ce que notre IA a accompli</p>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-number" id="stat-conversations">—</span>
+                <span class="stat-label">Conversations</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="stat-questions">—</span>
+                <span class="stat-label">Questions posées</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="stat-users">—</span>
+                <span class="stat-label">Utilisateurs inscrits</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="stat-satisfaction">—</span>
+                <span class="stat-label">Taux de satisfaction</span>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        document.getElementById('btn-stats').addEventListener('click', () => {
+            document.getElementById('stats-section').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                document.getElementById('stat-conversations').textContent = data.conversations.toLocaleString('fr-FR');
+                document.getElementById('stat-questions').textContent = data.questions.toLocaleString('fr-FR');
+                document.getElementById('stat-users').textContent = data.users.toLocaleString('fr-FR');
+                document.getElementById('stat-satisfaction').textContent = data.satisfaction !== null ? data.satisfaction + '%' : 'N/A';
+            } catch {}
+        }
+
+        loadStats();
+    </script>
 </body>
 </html>

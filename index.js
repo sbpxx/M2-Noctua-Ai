@@ -441,6 +441,39 @@ app.post('/change-password', authenticateToken, async (req, res) => {
     }
 });
 
+// Statistiques publiques pour la page d'accueil
+app.get('/api/stats', async (req, res) => {
+    let client;
+    try {
+        client = await pool.connect();
+        const [convRes, msgRes, userRes, voteRes] = await Promise.all([
+            client.query('SELECT COUNT(*) FROM conversations'),
+            client.query('SELECT COUNT(*) FROM messages WHERE sender = $1', ['user']),
+            client.query('SELECT COUNT(*) FROM "users"'),
+            client.query(`SELECT
+                COUNT(*) FILTER (WHERE note = 1) AS upvotes,
+                COUNT(*) FILTER (WHERE note = -1) AS downvotes
+                FROM messages WHERE note IS NOT NULL`)
+        ]);
+
+        const upvotes = parseInt(voteRes.rows[0].upvotes);
+        const downvotes = parseInt(voteRes.rows[0].downvotes);
+        const totalVotes = upvotes + downvotes;
+
+        res.json({
+            conversations: parseInt(convRes.rows[0].count),
+            questions: parseInt(msgRes.rows[0].count),
+            users: parseInt(userRes.rows[0].count),
+            satisfaction: totalVotes > 0 ? Math.round((upvotes / totalVotes) * 100) : null
+        });
+    } catch (err) {
+        console.error('Erreur stats:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
 // Modifier le nom d'utilisateur
 app.patch('/user/name', authenticateToken, async (req, res) => {
     const { name } = req.body;
