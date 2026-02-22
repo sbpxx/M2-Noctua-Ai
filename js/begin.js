@@ -34,8 +34,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         const userData = await userResponse.json();
                         userId = userData.id;
                     } else {
-                        console.log('Token invalide, continuation en mode invité');
-                        sessionStorage.removeItem('authToken');
+                            sessionStorage.removeItem('authToken');
                         sessionStorage.removeItem('userEmail');
                         sessionStorage.removeItem('userName');
                     }

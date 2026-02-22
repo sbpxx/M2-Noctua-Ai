@@ -10,8 +10,15 @@ const path = require('path');
 const pool = require('./js/libraryBDD'); // Importer le pool de connexions
 const jwt = require('jsonwebtoken');
 
-const secretKey = process.env.JWT_SECRET || 'fallback-secret-key';
+const { exec } = require('child_process');
+
+const secretKey = process.env.JWT_SECRET;
+if (!secretKey) {
+    console.error('JWT_SECRET non défini dans .env — arrêt du serveur');
+    process.exit(1);
+}
 const BCRYPT_ROUNDS = 10;
+const scriptsPath = path.join(__dirname, 'scripts');
 
 
 // API RAG (remplace Ollama)
@@ -20,25 +27,19 @@ const RAG_MODEL = 'rag-mistral';
 
 // Fonction pour enregistrer log admin
 async function logAdminAction(userId, action) {
+    let client;
     try {
-        const client = await pool.connect();
-        // Récupérer l'email de l'utilisateur
-        const userResult = await client.query(
-            'SELECT email FROM "users" WHERE id = $1',
-            [userId]
-        );
-
+        client = await pool.connect();
+        const userResult = await client.query('SELECT email FROM "users" WHERE id = $1', [userId]);
         if (userResult.rows.length > 0) {
             const userEmail = userResult.rows[0].email;
-            await client.query(
-                'INSERT INTO admin_logs (user_email, action) VALUES ($1, $2)',
-                [userEmail, action]
-            );
+            await client.query('INSERT INTO admin_logs (user_email, action) VALUES ($1, $2)', [userEmail, action]);
             console.log(`[LOG ADMIN] ${userEmail} : ${action}`);
         }
-        client.release();
     } catch (err) {
         console.error('Erreur enregistrement log admin:', err.message);
+    } finally {
+        if (client) client.release();
     }
 }
 
@@ -75,19 +76,17 @@ app.get('/begin', function(req, res) {
 
 // Ajouter un utilisateur à la BDD
 app.post('/register', async (req, res) => {
+    let client;
     try {
-        const client = await pool.connect();
+        client = await pool.connect();
 
-        // Vérifier si l'adresse e-mail est déjà utilisée
         const emailCheck = await client.query(
             'SELECT * FROM "users" WHERE email = $1',
             [req.body.email]
         );
 
         if (emailCheck.rows.length > 0) {
-            res.status(400).json({ error: 'Adresse e-mail déjà utilisée' });
-            client.release();
-            return;
+            return res.status(400).json({ error: 'Adresse e-mail déjà utilisée' });
         }
 
         const hashedPassword = await bcrypt.hash(req.body.mot_de_passe, BCRYPT_ROUNDS);
@@ -96,12 +95,12 @@ app.post('/register', async (req, res) => {
             [req.body.nom, req.body.email, hashedPassword]
         );
 
-        const newUser = result.rows[0];
-        res.json(newUser);
-        client.release();
+        res.json(result.rows[0]);
     } catch (err) {
         console.error('Erreur lors de l\'ajout de l\'utilisateur:', err.stack);
         res.status(500).json({ error: 'Erreur lors de l\'ajout de l\'utilisateur' });
+    } finally {
+        if (client) client.release();
     }
 });
 
@@ -185,14 +184,13 @@ function optionalAuthenticateToken(req, res, next) {
 
 // vérification si l'utilisateur est admin
 async function isAdmin(req, res, next) {
+    let client;
     try {
-        const client = await pool.connect();
+        client = await pool.connect();
         const result = await client.query(
             'SELECT admin FROM "users" WHERE id = $1',
             [req.user.id]
         );
-        client.release();
-
         if (result.rows.length === 0 || !result.rows[0].admin) {
             return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
         }
@@ -200,13 +198,12 @@ async function isAdmin(req, res, next) {
     } catch (err) {
         console.error('Erreur vérification admin:', err);
         res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
     }
 }
 
 // Routes Admin pour controle de Mistral
-
-const { exec } = require('child_process');
-const scriptsPath = path.join(__dirname, 'scripts');
 
 // Statut de Mistral
 app.get('/api/admin/mistral/status', authenticateToken, isAdmin, (req, res) => {
@@ -351,103 +348,63 @@ app.get('/api/admin/logs', authenticateToken, isAdmin, async (req, res) => {
 
 // Route pour exporter les données utilisateur
 app.get('/api/user/export-data', authenticateToken, async (req, res) => {
+    let client;
     try {
-        const userId = req.user.id;
-        const client = await pool.connect();
+        client = await pool.connect();
+        const userResult = await client.query(
+            'SELECT id, name, email FROM "users" WHERE id = $1', [req.user.id]
+        );
 
-        try {
-            // Récupérer les informations utilisateur 
-            const userResult = await client.query(
-                'SELECT id, name, email FROM "users" WHERE id = $1',
-                [userId]
-            );
-
-            if (userResult.rows.length === 0) {
-                client.release();
-                return res.status(404).json({ error: 'Utilisateur non trouvé' });
-            }
-
-            const user = userResult.rows[0];
-
-            // Récupérer toutes les conversations de l'utilisateur
-            const conversationsResult = await client.query(
-                'SELECT id, title, created_at, updated_at FROM conversations WHERE user_id = $1 ORDER BY created_at ASC',
-                [userId]
-            );
-
-            const conversations = [];
-            let totalMessages = 0;
-
-            // Pour chaque conversation, récupérer les messages
-            for (const conv of conversationsResult.rows) {
-                const messagesResult = await client.query(
-                    'SELECT sender, content, sources, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
-                    [conv.id]
-                );
-
-                const messages = messagesResult.rows.map(msg => {
-                    let sources = null;
-                    if (msg.sources) {
-                        // Si c'est déjà un objet, l'utiliser directement
-                        if (typeof msg.sources === 'object') {
-                            sources = msg.sources;
-                        } else if (typeof msg.sources === 'string' && msg.sources.trim()) {
-                            try {
-                                sources = JSON.parse(msg.sources);
-                            } catch (e) {
-                                sources = null;
-                            }
-                        }
-                    }
-                    return {
-                        sender: msg.sender,
-                        content: msg.content,
-                        sources: sources,
-                        created_at: msg.created_at
-                    };
-                });
-
-                totalMessages += messages.length;
-
-                conversations.push({
-                    id: conv.id,
-                    title: conv.title,
-                    created_at: conv.created_at,
-                    updated_at: conv.updated_at,
-                    messages: messages
-                });
-            }
-
-            // Construire l'objet 
-            const exportData = {
-                export_date: new Date().toISOString(),
-                user: {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email
-                },
-                conversations: conversations,
-                statistics: {
-                    total_conversations: conversations.length,
-                    total_messages: totalMessages
-                }
-            };
-
-            client.release();
-
-            // Envoyer le fichier JSON* pour téléchargement
-            res.setHeader('Content-Type', 'application/json');
-            res.setHeader('Content-Disposition', `attachment; filename="noctua-data-${user.id}-${Date.now()}.json"`);
-            res.json(exportData);
-
-        } catch (error) {
-            client.release();
-            throw error;
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Utilisateur non trouvé' });
         }
 
+        const user = userResult.rows[0];
+        const conversationsResult = await client.query(
+            'SELECT id, title, created_at, updated_at FROM conversations WHERE user_id = $1 ORDER BY created_at ASC',
+            [req.user.id]
+        );
+
+        const conversations = [];
+        let totalMessages = 0;
+
+        for (const conv of conversationsResult.rows) {
+            const messagesResult = await client.query(
+                'SELECT sender, content, sources, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+                [conv.id]
+            );
+
+            const messages = messagesResult.rows.map(msg => {
+                let sources = null;
+                if (msg.sources) {
+                    if (typeof msg.sources === 'object') {
+                        sources = msg.sources;
+                    } else if (typeof msg.sources === 'string' && msg.sources.trim()) {
+                        try { sources = JSON.parse(msg.sources); } catch { sources = null; }
+                    }
+                }
+                return { sender: msg.sender, content: msg.content, sources, created_at: msg.created_at };
+            });
+
+            totalMessages += messages.length;
+            conversations.push({ id: conv.id, title: conv.title, created_at: conv.created_at, updated_at: conv.updated_at, messages });
+        }
+
+        const exportData = {
+            export_date: new Date().toISOString(),
+            user: { id: user.id, name: user.name, email: user.email },
+            conversations,
+            statistics: { total_conversations: conversations.length, total_messages: totalMessages }
+        };
+
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="noctua-data-${user.id}-${Date.now()}.json"`);
+        res.json(exportData);
     } catch (error) {
         console.error('Erreur export données:', error);
         res.status(500).json({ error: 'Erreur lors de l\'export des données' });
+    } finally {
+        if (client) client.release();
     }
 });
 
@@ -687,94 +644,51 @@ app.patch('/messages/:messageId/note', authenticateToken, async (req, res) => {
 
 // Supprimer une conversation
 app.delete('/conversations/:id', authenticateToken, async (req, res) => {
+    let client;
     try {
-        const conversationId = req.params.id;
-        const userId = req.user.id;
+        client = await pool.connect();
+        const conversationResult = await client.query(
+            'SELECT id FROM conversations WHERE id = $1 AND user_id = $2',
+            [req.params.id, req.user.id]
+        );
 
-        const client = await pool.connect();
-
-        try {
-            // Vérifier que la conversation appartient à l'utilisateur
-            const conversationResult = await client.query(
-                'SELECT * FROM conversations WHERE id = $1 AND user_id = $2',
-                [conversationId, userId]
-            );
-
-            if (conversationResult.rows.length === 0) {
-                client.release();
-                return res.status(404).json({ error: 'Conversation non trouvée ou non autorisée' });
-            }
-
-            // Supprimer les messages associés
-            await client.query(
-                'DELETE FROM messages WHERE conversation_id = $1',
-                [conversationId]
-            );
-
-            // Supprimer la conversation
-            await client.query(
-                'DELETE FROM conversations WHERE id = $1',
-                [conversationId]
-            );
-
-            client.release();
-            res.json({ success: true, message: 'Conversation supprimée' });
-        } catch (error) {
-            client.release();
-            throw error;
+        if (conversationResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Conversation non trouvée ou non autorisée' });
         }
+
+        await client.query('DELETE FROM messages WHERE conversation_id = $1', [req.params.id]);
+        await client.query('DELETE FROM conversations WHERE id = $1', [req.params.id]);
+        res.json({ success: true, message: 'Conversation supprimée' });
     } catch (error) {
         console.error('Erreur suppression conversation:', error);
         res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
     }
 });
 
 // Supprimer toutes les conversations d'un utilisateur
 app.delete('/api/user/conversations/all', authenticateToken, async (req, res) => {
+    let client;
     try {
-        const userId = req.user.id;
-        const client = await pool.connect();
+        client = await pool.connect();
+        const conversationsResult = await client.query(
+            'SELECT id FROM conversations WHERE user_id = $1', [req.user.id]
+        );
+        const conversationIds = conversationsResult.rows.map(row => row.id);
 
-        try {
-            // Récupérer les IDs des conversations de l'utilisateur
-            const conversationsResult = await client.query(
-                'SELECT id FROM conversations WHERE user_id = $1',
-                [userId]
-            );
-
-            const conversationIds = conversationsResult.rows.map(row => row.id);
-
-            if (conversationIds.length === 0) {
-                client.release();
-                return res.json({ success: true, message: 'Aucune conversation à supprimer', deleted: 0 });
-            }
-
-            // Supprimer tous les messages des conversations
-            await client.query(
-                'DELETE FROM messages WHERE conversation_id = ANY($1)',
-                [conversationIds]
-            );
-
-            // Supprimer toutes les conversations
-            const deleteResult = await client.query(
-                'DELETE FROM conversations WHERE user_id = $1',
-                [userId]
-            );
-
-            client.release();
-            res.json({
-                success: true,
-                message: 'Historique supprimé avec succès',
-                deleted: deleteResult.rowCount
-            });
-
-        } catch (error) {
-            client.release();
-            throw error;
+        if (conversationIds.length === 0) {
+            return res.json({ success: true, message: 'Aucune conversation à supprimer', deleted: 0 });
         }
+
+        await client.query('DELETE FROM messages WHERE conversation_id = ANY($1)', [conversationIds]);
+        const deleteResult = await client.query('DELETE FROM conversations WHERE user_id = $1', [req.user.id]);
+        res.json({ success: true, message: 'Historique supprimé avec succès', deleted: deleteResult.rowCount });
     } catch (error) {
         console.error('Erreur suppression historique:', error);
         res.status(500).json({ error: 'Erreur lors de la suppression de l\'historique' });
+    } finally {
+        if (client) client.release();
     }
 });
 
@@ -815,16 +729,13 @@ io.on('connection', (socket) => {
 
                 if (convCheck.rows.length === 0) {
                     socket.emit('error', { message: 'Conversation non trouvée' });
-                    client.release();
                     return;
                 }
 
                 const conversation = convCheck.rows[0];
 
-                // non accès aux conv
                 if (conversation.user_id !== null && !userId) {
                     socket.emit('error', { message: 'Authentification requise' });
-                    client.release();
                     return;
                 }
 

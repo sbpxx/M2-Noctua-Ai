@@ -109,7 +109,7 @@ async function loadConversationMessages(conversationId) {
         const token = sessionStorage.getItem('authToken');
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
         const response = await fetch(`/conversations/${conversationId}/messages`, { headers });
-        if (!response.ok) throw new Error('Eche de chargement des messages');
+        if (!response.ok) throw new Error('Échec de chargement des messages');
 
         const messages = await response.json();
 
@@ -377,7 +377,6 @@ function hideTypingIndicator() {
 
 // Parser les sources du contenu du message
 function parseSourcesFromContent(content, messageIndex) {
-    const sources = [];
     const sourceNumbers = new Set();
 
     // Extraction des numéros de sources depuis tous les formats
@@ -399,15 +398,6 @@ function parseSourcesFromContent(content, messageIndex) {
     while ((match = bareRefRegex.exec(content)) !== null) {
         sourceNumbers.add(match[1]);
     }
-
-    sourceNumbers.forEach(num => {
-        sources.push({
-            id: `source-${Date.now()}-${num}`,
-            number: num,
-            title: `Source ${num}`,
-            excerpt: `Document référencé dans la réponse`
-        });
-    });
 
     let processedContent = content.replace(/\n{3,}/g, '\n\n').trim();
 
@@ -439,7 +429,7 @@ function parseSourcesFromContent(content, messageIndex) {
         html = html.replace(`%%SOURCE_${i}%%`, sourceHtml);
     });
 
-    return { html, sources, referencedNumbers: sourceNumbers };
+    return { html, referencedNumbers: sourceNumbers };
 }
 
 // Filtrer les sources d'un message à celles citées dans le texte

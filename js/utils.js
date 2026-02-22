@@ -325,13 +325,13 @@ function initPasswordChange() {
 
 function isGuestUser() {
     const token = sessionStorage.getItem('authToken');
-    return !token || token === null;
+    return !token;
 }
 
 function getGuestSessionId() {
     let guestId = sessionStorage.getItem('guestSessionId');
     if (!guestId) {
-        guestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        guestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
         sessionStorage.setItem('guestSessionId', guestId);
     }
     return guestId;
@@ -550,7 +550,9 @@ async function loadConversationsForSearch() {
         });
         const userData = await userResponse.json();
 
-        const conversationsResponse = await fetch(`/conversations/user/${userData.id}`);
+        const conversationsResponse = await fetch(`/conversations/user/${userData.id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         allConversationsCache = await conversationsResponse.json();
 
         // Afficher toutes les conversations initialement

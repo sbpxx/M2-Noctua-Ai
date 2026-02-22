@@ -1,13 +1,7 @@
 // partial.js
 
 document.addEventListener('DOMContentLoaded', function() {
-
-
-    
-
-
     updateInfo();
-
 
     // Sélectionner les éléments de navigation
     const accueilNav = document.getElementById('accueil');
@@ -36,12 +30,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    //Si il fait un click peut importe ou sur on verifier le jeton
-    window.addEventListener('click', function() {
-        updateInfo();
-    });
-
-    
 
     const loginModal = document.getElementById('loginModal');
     const registerModal = document.getElementById('registerModal');
@@ -335,10 +323,6 @@ async function loadDiscussions() {
                         <i class="ri-archive-line"></i>
                         <span>Archiver la conversation</span>
                     </a>
-                    <a href="#" class="dropdown-item" data-action="share">
-                        <i class="ri-share-line"></i>
-                        <span>Partager la conversation</span>
-                    </a>
                     <a href="#" class="dropdown-item" data-action="delete">
                         <i class="ri-delete-bin-line"></i>
                         <span>Supprimer la conversation</span>
@@ -491,8 +475,6 @@ document.addEventListener('click', function(e) {
             openRenameModal(conversationId, currentTitle);
         } else if (action === 'archive') {
             archiveConversation(conversationId);
-        } else if (action === 'share') {
-            showError('Fonctionnalité en développement');
         }
         return;
     }
