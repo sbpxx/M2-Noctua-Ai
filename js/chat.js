@@ -134,24 +134,31 @@ async function loadConversationMessages(conversationId) {
         // Afficher toutes les sources groupées par message
         showAllSources();
 
-        // déclance une réponse de l'ia au début de la conversation
+        // Restaurer ou déclencher l'état d'attente
+        const lastMessage = messages[messages.length - 1];
+        const waitingId = sessionStorage.getItem('waitingConversationId');
+        const isAlreadyWaiting = waitingId === String(conversationId);
+
         if (messages.length === 1 && messages[0].sender === 'user') {
             const email = sessionStorage.getItem('userEmail');
             const isGuest = !token;
 
-            // Désactiver les contrôles pendant l'attente de la première réponse
             disableSendControls();
+            showTypingIndicator();
 
-            skipNextUserMessage = true;
-
-            socket.emit('send-message', {
-                conversationId: conversationId,
-                userId: isGuest ? null : email,
-                message: messages[0].content,
-                isGuest: isGuest
-            });
-
-            // Afficher l'animation de chargement
+            if (!isAlreadyWaiting) {
+                // l'utilisateur n'attends pas de message de la par du llm
+                skipNextUserMessage = true;
+                socket.emit('send-message', {
+                    conversationId: conversationId,
+                    userId: isGuest ? null : email,
+                    message: messages[0].content,
+                    isGuest: isGuest
+                });
+            }
+        } else if (lastMessage?.sender === 'user' && isAlreadyWaiting) {
+            // Retour sur une conversation en cours de génération
+            disableSendControls();
             showTypingIndicator();
         }
     } catch (error) {
@@ -293,6 +300,7 @@ function disableSendControls() {
         sendBtn.classList.add('disabled');
     }
     isWaitingForResponse = true;
+    sessionStorage.setItem('waitingConversationId', currentConversationId);
 }
 
 // Réactiver les contrôles d'envoi
@@ -309,6 +317,7 @@ function enableSendControls() {
         sendBtn.classList.remove('disabled');
     }
     isWaitingForResponse = false;
+    sessionStorage.removeItem('waitingConversationId');
 }
 
 // Send message via Socket.io

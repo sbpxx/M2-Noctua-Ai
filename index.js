@@ -13,6 +13,28 @@ const jwt = require('jsonwebtoken');
 const { exec } = require('child_process');
 
 const secretKey = process.env.JWT_SECRET;
+
+function generateTitle(message) {
+    const stopWords = new Set([
+        'le','la','les','un','une','des','du','de','d','l',
+        'je','tu','il','elle','on','nous','vous','ils','elles',
+        'est','sont','a','ont','été','être','avoir',
+        'que','qui','quoi','dont','où','quand','comment','pourquoi','quel','quelle',
+        'ce','se','sa','son','ses','mon','ma','mes','ton','ta','tes',
+        'et','ou','mais','donc','or','ni','car','si','en','au','aux',
+        'pas','plus','très','bien','faire','fais','peut','peux','veux','vais',
+        'me','te','lui','y','ça','cela','ceci','tout','tous'
+    ]);
+
+    return message
+        .toLowerCase()
+        .replace(/[^a-zàâäéèêëîïôùûüç\s]/g, '')
+        .split(/\s+/)
+        .filter(w => w.length > 2 && !stopWords.has(w))
+        .slice(0, 4)
+        .map((w, i) => i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w)
+        .join(' ') || message.substring(0, 40);
+}
 if (!secretKey) {
     console.error('JWT_SECRET non défini dans .env — arrêt du serveur');
     process.exit(1);
@@ -546,7 +568,7 @@ app.post('/conversations', async (req, res) => {
         client = await pool.connect();
         const conversationResult = await client.query(
             'INSERT INTO conversations (user_id, title, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *',
-            [user_id || null, first_message.substring(0, 50)]
+            [user_id || null, generateTitle(first_message)]
         );
         const conversation = conversationResult.rows[0];
         await client.query(
