@@ -474,6 +474,47 @@ app.get('/api/stats', async (req, res) => {
     }
 });
 
+// Données de graphiques pour la page d'accueil
+app.get('/api/stats/charts', async (req, res) => {
+    let client;
+    try {
+        client = await pool.connect();
+
+        const conversations = (await client.query(
+            `SELECT DATE_TRUNC('day', created_at)::date AS day, COUNT(*) AS count
+             FROM conversations WHERE created_at >= NOW() - INTERVAL '30 days'
+             GROUP BY day ORDER BY day ASC`
+        )).rows;
+
+        const messages = (await client.query(
+            `SELECT DATE_TRUNC('day', created_at)::date AS day, COUNT(*) AS count
+             FROM messages WHERE sender = 'user' AND created_at >= NOW() - INTERVAL '30 days'
+             GROUP BY day ORDER BY day ASC`
+        )).rows;
+
+        const users = (await client.query(
+            `SELECT DATE_TRUNC('day', created_at)::date AS day, COUNT(*) AS count
+             FROM "users" WHERE created_at >= NOW() - INTERVAL '3 months'
+             GROUP BY day ORDER BY day ASC`
+        )).rows;
+
+        const satisfaction = (await client.query(
+            `SELECT DATE_TRUNC('week', created_at)::date AS week,
+                 COUNT(*) FILTER (WHERE note = 1) AS upvotes,
+                 COUNT(*) FILTER (WHERE note = -1) AS downvotes
+             FROM messages WHERE note IS NOT NULL AND created_at >= NOW() - INTERVAL '5 weeks'
+             GROUP BY week ORDER BY week ASC`
+        )).rows;
+
+        res.json({ conversations, messages, users, satisfaction });
+    } catch (err) {
+        console.error('Erreur stats charts:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
 // Modifier le nom d'utilisateur
 app.patch('/user/name', authenticateToken, async (req, res) => {
     const { name } = req.body;

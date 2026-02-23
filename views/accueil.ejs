@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <script src="../js/partial.js"></script>
     <script src="../js/utils.js"></script>
@@ -114,6 +115,29 @@
         </div>
     </section>
 
+    <section class="charts-section">
+        <h2 class="stats-title">Activité récente</h2>
+        <p class="stats-subtitle">Évolution au fil du temps</p>
+        <div class="charts-grid">
+            <div class="chart-card">
+                <p class="chart-title">Conversations / jour (30j)</p>
+                <canvas id="chart-conversations"></canvas>
+            </div>
+            <div class="chart-card">
+                <p class="chart-title">Questions / jour (30j)</p>
+                <canvas id="chart-messages"></canvas>
+            </div>
+            <div class="chart-card">
+                <p class="chart-title">Inscriptions cumulées (3 mois)</p>
+                <canvas id="chart-users"></canvas>
+            </div>
+            <div class="chart-card">
+                <p class="chart-title">Satisfaction par semaine (5 sem.)</p>
+                <canvas id="chart-satisfaction"></canvas>
+            </div>
+        </div>
+    </section>
+
     <script>
         document.getElementById('btn-stats').addEventListener('click', () => {
             document.getElementById('stats-section').scrollIntoView({ behavior: 'smooth' });
@@ -130,7 +154,73 @@
             } catch {}
         }
 
+        function makeChart(id, labels, values, label, color) {
+            const ctx = document.getElementById(id).getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+            gradient.addColorStop(0, color + '55');
+            gradient.addColorStop(1, color + '00');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label,
+                        data: values,
+                        borderColor: color,
+                        backgroundColor: gradient,
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#8899bb', maxTicksLimit: 6 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { ticks: { color: '#8899bb' }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        async function loadCharts() {
+            try {
+                const res = await fetch('/api/stats/charts');
+                const data = await res.json();
+
+                const fmtDay = d => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+                const fmtWeek = d => 'Sem. ' + new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+
+                makeChart('chart-conversations',
+                    data.conversations.map(r => fmtDay(r.day)),
+                    data.conversations.map(r => Number(r.count)),
+                    'Conversations', '#7A73D1');
+
+                makeChart('chart-messages',
+                    data.messages.map(r => fmtDay(r.day)),
+                    data.messages.map(r => Number(r.count)),
+                    'Questions', '#4FC3F7');
+
+                let cumul = 0;
+                makeChart('chart-users',
+                    data.users.map(r => fmtDay(r.day)),
+                    data.users.map(r => { cumul += Number(r.count); return cumul; }),
+                    'Utilisateurs', '#81C784');
+
+                makeChart('chart-satisfaction',
+                    data.satisfaction.map(r => fmtWeek(r.week)),
+                    data.satisfaction.map(r => {
+                        const up = Number(r.upvotes), down = Number(r.downvotes);
+                        return up + down > 0 ? Math.round(up / (up + down) * 100) : null;
+                    }),
+                    'Satisfaction %', '#FFB74D');
+            } catch {}
+        }
+
         loadStats();
+        loadCharts();
     </script>
 </body>
 </html>

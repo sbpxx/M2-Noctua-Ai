@@ -559,6 +559,55 @@ body.page-accueil {
     }
 }
 
+/* Section graphiques */
+.charts-section {
+    width: 100%;
+    padding: 5rem 2rem 6rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1628 100%);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+    max-width: 1000px;
+    width: 100%;
+}
+
+.chart-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 1.5rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chart-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.chart-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #b8c5e0;
+    margin-bottom: 1rem;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+@media (max-width: 768px) {
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Main Container */
 .container {
     display: flex;
