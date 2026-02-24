@@ -1,21 +1,31 @@
-// Initialize Socket.io connection
+// =============================================================
+// VARIABLES GLOBALES
+// =============================================================
+
 const socket = io();
 
 let currentConversationId = null;
 let isConnected = false;
 let isWaitingForResponse = false;
-let messageSourcesMap = new Map(); // messageIndex (int) → sources[]
-let botMessageCount = 0;           // compteur pour indexer chaque message bot
-let skipNextUserMessage = false;
+
+// Chaque message bot a un index, on stocke ses sources dans cette map
+let messageSourcesMap = new Map();
+let botMessageCount = 0;
+
+
+// =============================================================
+// INITIALISATION
+// =============================================================
 
 document.addEventListener('DOMContentLoaded', async function() {
     const token = sessionStorage.getItem('authToken');
     const isGuest = !token;
 
+    // On récupère l'ID de conversation depuis l'URL ou le localStorage
     const urlParams = new URLSearchParams(window.location.search);
     currentConversationId = urlParams.get('conversationId') || localStorage.getItem('currentConversationId');
 
-    // Vérification session invité
+    // Un invité n'a accès qu'à sa propre conversation de session
     if (isGuest) {
         const guestConvId = sessionStorage.getItem('guestConversationId');
 
@@ -24,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
+        // Si l'invité essaie d'accéder à une autre conversation, on le vire
         if (currentConversationId !== guestConvId) {
             clearGuestSession();
             window.location.href = '/begin';
@@ -31,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
+    // Cas où on vient juste de créer une nouvelle conversation depuis begin.js
     if (!currentConversationId) {
         const newConvString = localStorage.getItem('newConversation');
         if (newConvString) {
@@ -48,10 +60,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     setupEventListeners();
+    initSourcesListeners();
 });
+
+
+// =============================================================
+// SOCKET.IO — connexion et réception des messages
+// =============================================================
 
 socket.on('connect', () => {
     isConnected = true;
+    // On rejoint la room de la conversation pour recevoir ses messages en temps réel
     if (currentConversationId) {
         socket.emit('join-conversation', currentConversationId);
     }
@@ -61,50 +80,57 @@ socket.on('disconnect', () => {
     isConnected = false;
 });
 
-socket.on('receive-message', (data) => {
-    // Remplacer les messages d'erreur techniques
-
-    let content = data.content;
-    if (content && (content.includes('[ERREUR RÉSEAU]') || content.includes('Connection aborted') || content.includes('ConnectionResetError'))) {
-        content = "Désolé, le service IA est temporairement indisponible. Veuillez réessayer dans quelques instants.";
-    }
-
-    // Éviter le doublon du premier message
-    if (data.sender === 'user' && skipNextUserMessage) {
-        skipNextUserMessage = false;
-        showTypingIndicator();
-        return;
-    }
-
-    // Passer les sources si disponibles
-    displayMessage(data.sender, content, true, data.sources || [], data.id || null, null, data.created_at);
-
-    // Afficher l'indicateur après le message utilisateur, le cacher après la réponse IA
-    if (data.sender === 'user') {
-        showTypingIndicator();
-    } else {
-        hideTypingIndicator();
-        // Réactiver les contrôles après réception de la réponse du bot
-        enableSendControls();
-    }
-});
-
-socket.on('error', (error) => {
-    console.error('[Socket] Erreur:', error);
-    hideTypingIndicator();
-    // Réactiver les contrôles en cas d'erreur
-    enableSendControls();
-    showError('Une erreur est survenue lors de l\'envoi du message', 3000);
-});
-
 socket.on('reconnect', () => {
+    // Si la connexion est perdue et rétablie, on se remet dans la bonne room
     if (currentConversationId) {
         socket.emit('join-conversation', currentConversationId);
     }
 });
 
-// Chargement des conversations
+socket.on('receive-message', (data) => {
+    let content = data.content;
+
+    // Mistral peut planter côté serveur, on remplace l'erreur technique par un message lisible
+    if (content && (
+        content.includes('[ERREUR RÉSEAU]') ||
+        content.includes('Connection aborted') ||
+        content.includes('ConnectionResetError')
+    )) {
+        content = "Désolé, le service IA est temporairement indisponible. Veuillez réessayer dans quelques instants.";
+    }
+
+    // Le serveur renvoie notre propre message en écho.
+    // On l'ignore ici car on l'a déjà affiché localement dans sendMessage().
+    // On profite de cet écho pour afficher l'indicateur de frappe.
+    if (data.sender === 'user') {
+        showTypingIndicator();
+        return;
+    }
+
+    // Réponse du bot reçue, on l'affiche et on réactive la saisie
+    displayMessage(data.sender, content, true, data.sources || [], data.id || null, null, data.created_at);
+    hideTypingIndicator();
+    enableSendControls();
+});
+
+socket.on('error', (error) => {
+    console.error('[Socket] Erreur:', error);
+    hideTypingIndicator();
+    enableSendControls();
+    showError('Une erreur est survenue lors de l\'envoi du message', 3000);
+});
+
+
+// =============================================================
+// CHARGEMENT DE LA CONVERSATION
+// =============================================================
+
 async function loadConversationMessages(conversationId) {
+    const chatContainer = document.getElementById('chat-container');
+
+    // Spinner pendant le chargement
+    chatContainer.innerHTML = '<div class="chat-loading-spinner"></div>';
+
     try {
         const token = sessionStorage.getItem('authToken');
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
@@ -113,8 +139,7 @@ async function loadConversationMessages(conversationId) {
 
         const messages = await response.json();
 
-        // Clear existing messages et sources
-        const chatContainer = document.getElementById('chat-container');
+        // On repart de zéro : on vide le chat et on réinitialise les sources
         chatContainer.innerHTML = '';
         messageSourcesMap = new Map();
         botMessageCount = 0;
@@ -123,23 +148,25 @@ async function loadConversationMessages(conversationId) {
             sourcesContainer.innerHTML = '<p class="sources-empty">Les sources citées apparaîtront ici.</p>';
         }
 
-        // Display des messages avec leurs sources
+        // Affichage de tous les messages existants
         messages.forEach(message => {
             const sources = message.sources || [];
             displayMessage(message.sender, message.content, false, sources, message.id, message.note, message.created_at);
         });
 
         chatContainer.scrollTop = chatContainer.scrollHeight;
-
-        // Afficher toutes les sources groupées par message
         showAllSources();
 
-        // Restaurer ou déclencher l'état d'attente
+        // --- Gestion de l'état d'attente ---
+        // Si l'utilisateur revient sur une conversation dont le LLM génère encore la réponse,
+        // on remet l'interface en mode "attente" sans renvoyer le message au serveur.
         const lastMessage = messages[messages.length - 1];
         const waitingId = sessionStorage.getItem('waitingConversationId');
         const isAlreadyWaiting = waitingId === String(conversationId);
 
         if (messages.length === 1 && messages[0].sender === 'user') {
+            // Nouvelle conversation : un seul message user sans réponse bot
+            // → on déclenche la génération côté serveur
             const email = sessionStorage.getItem('userEmail');
             const isGuest = !token;
 
@@ -147,8 +174,6 @@ async function loadConversationMessages(conversationId) {
             showTypingIndicator();
 
             if (!isAlreadyWaiting) {
-                // l'utilisateur n'attends pas de message de la par du llm
-                skipNextUserMessage = true;
                 socket.emit('send-message', {
                     conversationId: conversationId,
                     userId: isGuest ? null : email,
@@ -157,14 +182,21 @@ async function loadConversationMessages(conversationId) {
                 });
             }
         } else if (lastMessage?.sender === 'user' && isAlreadyWaiting) {
-            // Retour sur une conversation en cours de génération
+            // L'utilisateur était parti pendant la génération et revient
+            // → on remet juste le visuel "en attente", la réponse arrivera via socket
             disableSendControls();
             showTypingIndicator();
         }
+
     } catch (error) {
         console.error('[Chat] Erreur chargement messages:', error);
     }
 }
+
+
+// =============================================================
+// AFFICHAGE DES MESSAGES
+// =============================================================
 
 function displayMessage(sender, content, shouldScroll = true, serverSources = [], messageId = null, note = null, createdAt = null) {
     const chatContainer = document.getElementById('chat-container');
@@ -175,14 +207,15 @@ function displayMessage(sender, content, shouldScroll = true, serverSources = []
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
 
-    // Pour les messages du bot, parser les sources
     if (sender === 'bot') {
+        // Pour le bot on parse le markdown et on transforme les refs [1] en spans cliquables
         const msgIdx = botMessageCount++;
         bubble.dataset.messageIndex = msgIdx;
 
         const { html, referencedNumbers } = parseSourcesFromContent(content, msgIdx);
         contentDiv.innerHTML = html;
 
+        // On garde uniquement les sources que le bot a vraiment citées dans sa réponse
         const filteredSources = filterSourcesForMessage(serverSources, referencedNumbers);
         messageSourcesMap.set(msgIdx, filteredSources);
         showAllSources();
@@ -192,7 +225,7 @@ function displayMessage(sender, content, shouldScroll = true, serverSources = []
 
     bubble.appendChild(contentDiv);
 
-    //  boutons vote + heure
+    // Footer : vote et heure
     const footerDiv = document.createElement('div');
     footerDiv.className = 'message-footer';
 
@@ -227,7 +260,6 @@ function displayMessage(sender, content, shouldScroll = true, serverSources = []
     footerDiv.appendChild(timeDiv);
 
     bubble.appendChild(footerDiv);
-
     chatContainer.appendChild(bubble);
 
     if (shouldScroll) {
@@ -235,15 +267,142 @@ function displayMessage(sender, content, shouldScroll = true, serverSources = []
     }
 }
 
-// Vote pour msg bot
+function showTypingIndicator() {
+    // On supprime l'ancien s'il existe pour éviter les doublons
+    hideTypingIndicator();
+
+    const chatContainer = document.getElementById('chat-container');
+    const indicator = document.createElement('div');
+    indicator.className = 'typing-indicator';
+    indicator.id = 'typing-indicator';
+    indicator.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+
+    chatContainer.appendChild(indicator);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function hideTypingIndicator() {
+    const indicator = document.getElementById('typing-indicator');
+    if (indicator) {
+        indicator.remove();
+    }
+}
+
+
+// =============================================================
+// ENVOI DE MESSAGES
+// =============================================================
+
+function setupEventListeners() {
+    const sendBtn = document.getElementById('send-btn');
+    const chatInput = document.getElementById('chat-input');
+
+    if (sendBtn) {
+        sendBtn.addEventListener('click', sendMessage);
+    } else {
+        console.error('[Chat] Bouton d\'envoi introuvable');
+    }
+
+    if (chatInput) {
+        // Entrée envoie le message, Shift+Entrée fait un saut de ligne
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    } else {
+        console.error('[Chat] Input de message introuvable');
+    }
+}
+
+function sendMessage() {
+    if (isWaitingForResponse) return;
+
+    const chatInput = document.getElementById('chat-input');
+    const message = chatInput.value.trim();
+
+    if (!message || !currentConversationId) return;
+
+    if (!isConnected) {
+        showError('Non connecté au serveur. Veuillez rafraîchir la page.', 3000);
+        return;
+    }
+
+    const token = sessionStorage.getItem('authToken');
+    const email = sessionStorage.getItem('userEmail');
+    const isGuest = !token;
+
+    if (!isGuest && (!token || !email)) {
+        showError('Session expirée, veuillez vous reconnecter', 3000);
+        setTimeout(() => {
+            window.location.href = '/begin';
+        }, 2000);
+        return;
+    }
+
+    disableSendControls();
+
+    // On affiche le message localement tout de suite sans attendre l'écho socket
+    displayMessage('user', message, true, [], null, null, new Date().toISOString());
+
+    socket.emit('send-message', {
+        conversationId: currentConversationId,
+        userId: isGuest ? null : email,
+        message: message,
+        isGuest: isGuest
+    });
+
+    chatInput.value = '';
+}
+
+function disableSendControls() {
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+
+    if (chatInput) {
+        chatInput.disabled = true;
+        chatInput.placeholder = 'En attente de la réponse...';
+    }
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.classList.add('disabled');
+    }
+
+    isWaitingForResponse = true;
+    // On persiste l'ID en session pour retrouver l'état si l'utilisateur change de page
+    sessionStorage.setItem('waitingConversationId', currentConversationId);
+}
+
+function enableSendControls() {
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+
+    if (chatInput) {
+        chatInput.disabled = false;
+        chatInput.placeholder = 'Écrivez votre message...';
+    }
+    if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.classList.remove('disabled');
+    }
+
+    isWaitingForResponse = false;
+    sessionStorage.removeItem('waitingConversationId');
+}
+
+
+// =============================================================
+// SYSTÈME DE VOTE
+// =============================================================
+
 async function voteMessage(messageId, vote, thumbUpBtn, thumbDownBtn) {
     if (!messageId) return;
 
+    // Si on reclique sur le bouton déjà actif, ça annule le vote
     const currentNote = thumbUpBtn.classList.contains('active') ? 1
                       : thumbDownBtn.classList.contains('active') ? -1
                       : null;
-
-    // Cliquer sur le même bouton annule le vote
     const newNote = currentNote === vote ? null : vote;
 
     try {
@@ -263,133 +422,19 @@ async function voteMessage(messageId, vote, thumbUpBtn, thumbDownBtn) {
     }
 }
 
-// Event listeners pour envoie de messages
-function setupEventListeners() {
-    const sendBtn = document.getElementById('send-btn');
-    const chatInput = document.getElementById('chat-input');
 
-    if (sendBtn) {
-        sendBtn.addEventListener('click', sendMessage);
-    } else {
-        console.error('[Chat] Bouton d\'envoi introuvable');
-    }
+// =============================================================
+// SIDEBAR DES SOURCES
+// =============================================================
 
-    if (chatInput) {
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
-    } else {
-        console.error('[Chat] Input de message introuvable');
-    }
-}
-
-// Désactiver les contrôles d'envoi
-function disableSendControls() {
-    const chatInput = document.getElementById('chat-input');
-    const sendBtn = document.getElementById('send-btn');
-
-    if (chatInput) {
-        chatInput.disabled = true;
-        chatInput.placeholder = 'En attente de la réponse...';
-    }
-    if (sendBtn) {
-        sendBtn.disabled = true;
-        sendBtn.classList.add('disabled');
-    }
-    isWaitingForResponse = true;
-    sessionStorage.setItem('waitingConversationId', currentConversationId);
-}
-
-// Réactiver les contrôles d'envoi
-function enableSendControls() {
-    const chatInput = document.getElementById('chat-input');
-    const sendBtn = document.getElementById('send-btn');
-
-    if (chatInput) {
-        chatInput.disabled = false;
-        chatInput.placeholder = 'Écrivez votre message...';
-    }
-    if (sendBtn) {
-        sendBtn.disabled = false;
-        sendBtn.classList.remove('disabled');
-    }
-    isWaitingForResponse = false;
-    sessionStorage.removeItem('waitingConversationId');
-}
-
-// Send message via Socket.io
-function sendMessage() {
-    if (isWaitingForResponse) return;
-
-    const chatInput = document.getElementById('chat-input');
-    const message = chatInput.value.trim();
-
-    if (!message || !currentConversationId) return;
-
-    if (!isConnected) {
-        showError('Non connecté au serveur. Veuillez rafraîchir la page.', 3000);
-        return;
-    }
-
-    // connecté ou non
-    const token = sessionStorage.getItem('authToken');
-    const email = sessionStorage.getItem('userEmail');
-    const isGuest = !token;
-
-    // Authentifiés : vérifier token valide
-    if (!isGuest && (!token || !email)) {
-        showError('Session expirée, veuillez vous reconnecter', 3000);
-        setTimeout(() => {
-            window.location.href = '/begin';
-        }, 2000);
-        return;
-    }
-
-    // Désactiver les contrôles pendant l'attente
-    disableSendControls();
-
-    // Emit message au server
-    socket.emit('send-message', {
-        conversationId: currentConversationId,
-        userId: isGuest ? null : email,
-        message: message,
-        isGuest: isGuest
-    });
-    chatInput.value = '';
-}
-
-function showTypingIndicator() {
-    hideTypingIndicator(); 
-
-    const chatContainer = document.getElementById('chat-container');
-    const indicator = document.createElement('div');
-    indicator.className = 'typing-indicator';
-    indicator.id = 'typing-indicator';
-    indicator.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
-
-    chatContainer.appendChild(indicator);
-    chatContainer.scrollTop = chatContainer.scrollHeight;
-}
-
-function hideTypingIndicator() {
-    const indicator = document.getElementById('typing-indicator');
-    if (indicator) {
-        indicator.remove();
-    }
-}
-
-// Gestion des sources
-
-// Parser les sources du contenu du message
+// Extrait tous les numéros de sources du texte brut ([1], [Source 2], etc.)
+// et retourne le HTML avec les références transformées en spans cliquables
 function parseSourcesFromContent(content, messageIndex) {
     const sourceNumbers = new Set();
 
-    // Extraction des numéros de sources depuis tous les formats
     const parseNums = str => str.split(/[\s,]+|et/i).map(n => n.trim()).filter(n => /^\d+$/.test(n));
 
+    // On cherche les formats [Source 1], (Source 1,2), Source 3...
     const sourcePatterns = [
         /\[Sources?\s*([\d\s,et]+)\]/gi,
         /\(Sources?\s*([\d\s,et]+)\)/gi,
@@ -402,6 +447,7 @@ function parseSourcesFromContent(content, messageIndex) {
             parseNums(match[1]).forEach(num => sourceNumbers.add(num));
         }
     }
+    // Format court [1]
     const bareRefRegex = /\[(\d+)\]/g;
     while ((match = bareRefRegex.exec(content)) !== null) {
         sourceNumbers.add(match[1]);
@@ -409,7 +455,8 @@ function parseSourcesFromContent(content, messageIndex) {
 
     let processedContent = content.replace(/\n{3,}/g, '\n\n').trim();
 
-    // Remplacement des refs par des placeholders avant le parsing markdown
+    // On remplace les refs par des placeholders AVANT le parsing markdown
+    // pour éviter que marked.js les transforme en liens ou les casse
     const sourcePlaceholders = [];
     const toPlaceholder = (match, numsStr) => {
         const placeholder = `%%SOURCE_${sourcePlaceholders.length}%%`;
@@ -426,9 +473,10 @@ function parseSourcesFromContent(content, messageIndex) {
         processedContent = processedContent.replace(regex, toPlaceholder);
     }
 
-    // Markdown + restauration en spans cliquables
+    // Markdown → HTML
     let html = marked.parse(processedContent, { breaks: true });
 
+    // Puis on remet les refs sous forme de spans cliquables
     sourcePlaceholders.forEach((numsStr, i) => {
         const nums = parseNums(numsStr);
         const sourceHtml = nums.map(num =>
@@ -440,19 +488,20 @@ function parseSourcesFromContent(content, messageIndex) {
     return { html, referencedNumbers: sourceNumbers };
 }
 
-// Filtrer les sources d'un message à celles citées dans le texte
+// On garde uniquement les sources que le bot a réellement citées
+// Si aucun numéro n'est détecté, on affiche tout par défaut
 function filterSourcesForMessage(serverSources, referencedNumbers) {
     if (!serverSources || serverSources.length === 0) return [];
     if (!referencedNumbers || referencedNumbers.size === 0) return serverSources;
     return serverSources.filter(s => referencedNumbers.has(String(s.number || s.id)));
 }
 
-// Afficher toutes les sources de tous les messages, groupées par message
+// Reconstruit toute la sidebar à partir de la map messageSourcesMap
 function showAllSources() {
     const sourcesContainer = document.getElementById('sources-container');
     if (!sourcesContainer) return;
-    sourcesContainer.innerHTML = '';
 
+    sourcesContainer.innerHTML = '';
     let totalCount = 0;
 
     messageSourcesMap.forEach((sources, msgIdx) => {
@@ -474,7 +523,7 @@ function showAllSources() {
     updateSourcesButton(totalCount);
 }
 
-// Créer et insérer une source dans la sidebar
+// Crée et insère une carte source dans la sidebar
 function renderSourceCard(source, messageIndex) {
     const sourcesContainer = document.getElementById('sources-container');
     const sourceId = source.number || source.id;
@@ -484,6 +533,7 @@ function renderSourceCard(source, messageIndex) {
 
     const card = document.createElement('div');
     card.className = 'source-card';
+    // L'ID inclut l'index du message pour éviter les collisions entre messages
     card.id = `source-card-${messageIndex}-${sourceId}`;
     card.innerHTML = `
         <div class="source-card-header">
@@ -492,7 +542,10 @@ function renderSourceCard(source, messageIndex) {
         </div>
         <p class="source-excerpt">${escapeHtml(excerpt)}</p>
         <div class="source-meta">
-            ${url ? `<a href="${escapeHtml(url)}" target="_blank" class="source-link"><i class="ri-external-link-line"></i> Ouvrir le document</a>` : '<i class="ri-file-text-line"></i> <span>Document universitaire</span>'}
+            ${url
+                ? `<a href="${escapeHtml(url)}" target="_blank" class="source-link"><i class="ri-external-link-line"></i> Ouvrir le document</a>`
+                : '<i class="ri-file-text-line"></i> <span>Document universitaire</span>'
+            }
         </div>
     `;
 
@@ -500,7 +553,7 @@ function renderSourceCard(source, messageIndex) {
     sourcesContainer.appendChild(card);
 }
 
-// Mettre à jour le bouton des sources
+// Affiche ou cache le bouton flottant "Sources" selon qu'il y en a ou non
 function updateSourcesButton(count) {
     const btn = document.getElementById('open-sources-btn');
     const countEl = document.getElementById('sources-count');
@@ -513,7 +566,7 @@ function updateSourcesButton(count) {
     }
 }
 
-// Met en évidence une source dans le contexte d'un message donné
+// Ouvre la sidebar et scroll jusqu'à la source cliquée, avec un flash visuel
 function highlightSource(sourceNumber, messageIndex) {
     openSourcesSidebar();
 
@@ -523,6 +576,7 @@ function highlightSource(sourceNumber, messageIndex) {
         card.style.borderColor = '#7A73D1';
         card.style.boxShadow = '0 4px 16px rgba(122, 115, 209, 0.3)';
 
+        // On enlève le flash après 2 secondes
         setTimeout(() => {
             card.style.borderColor = '';
             card.style.boxShadow = '';
@@ -530,30 +584,20 @@ function highlightSource(sourceNumber, messageIndex) {
     }
 }
 
-// Ouvrir la sidebar des sources
 function openSourcesSidebar() {
     const sidebar = document.getElementById('sources-sidebar');
     sidebar.classList.add('open');
 }
 
-// Fermer la sidebar des sources
 function closeSourcesSidebar() {
     const sidebar = document.getElementById('sources-sidebar');
     sidebar.classList.remove('open');
 }
 
-// Initialiser les event listeners pour les sources
 function initSourcesListeners() {
     const openBtn = document.getElementById('open-sources-btn');
     const closeBtn = document.getElementById('close-sources-btn');
 
-    if (openBtn) {
-        openBtn.addEventListener('click', openSourcesSidebar);
-    }
-    if (closeBtn) {
-        closeBtn.addEventListener('click', closeSourcesSidebar);
-    }
+    if (openBtn) openBtn.addEventListener('click', openSourcesSidebar);
+    if (closeBtn) closeBtn.addEventListener('click', closeSourcesSidebar);
 }
-
-// Appeler l'initialisation au chargement
-document.addEventListener('DOMContentLoaded', initSourcesListeners);
