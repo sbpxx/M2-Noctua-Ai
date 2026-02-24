@@ -1845,6 +1845,27 @@ transition: gap 0.3s ease;
     padding: 2rem 0 1rem 0;
 }
 
+.chat-loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.chat-loading-spinner::after {
+    content: '';
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #7A73D1;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 .chat-container {
     flex: 1;
     overflow-y: auto;

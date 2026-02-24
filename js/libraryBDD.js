@@ -1,12 +1,14 @@
+// libraryBDD.js
+// Crée et exporte le pool de connexions PostgreSQL utilisé par toute l'application.
+// On utilise un pool plutôt qu'une connexion unique pour gérer plusieurs requêtes en parallèle.
+
 const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
 
-// Lire le fichier de configuration
 const configPath = path.join(__dirname, '../config.json');
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-// Créer un pool de connexions à la base de données PostgreSQL
 const pool = new Pool({
     host: config.DB_HOST,
     user: config.DB_USER,
@@ -14,12 +16,11 @@ const pool = new Pool({
     database: config.DB_NAME,
     port: config.PORT,
     ssl: {
-        rejectUnauthorized: false // Accepter les connexions SSL non autorisées
+        rejectUnauthorized: false  // SSL auto-signé
     },
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 5000,
     max: 10
 });
 
-// Exporter le pool de connexions
 module.exports = pool;
