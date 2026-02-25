@@ -1,272 +1,217 @@
 // partial.js
+// Éléments partagés sur toutes les pages : sidebar, modals connexion/inscription,
+// liste des conversations dans la sidebar, archivage et renommage.
 
-document.addEventListener('DOMContentLoaded', function() {
-    updateInfo();
+// ====== VARIABLES GLOBALES ======
 
-    // Sélectionner les éléments de navigation
-    const accueilNav = document.getElementById('accueil');
-    const begin = document.getElementById('begin');
+let isLoadingDiscussions = false;  // Empêche les appels parallèles à loadDiscussions
+let _renameConversationId = null;  // ID de la conversation en cours de renommage
 
-    // Ajouter des écouteurs d'événements pour les éléments de navigation
-    if (accueilNav) {
-        accueilNav.addEventListener('click', function() {
-            window.location.href = '/'; // Rediriger vers la page d'accueil
-        });
+// ====== MODALS CONNEXION / INSCRIPTION ======
+
+function showLoginModal() {
+    document.getElementById('loginModal').style.display = 'flex';
+    document.getElementById('registerModal').style.display = 'none';
+    document.querySelectorAll('.grid-container img').forEach(img => img.classList.add('no-grayscale'));
+}
+
+function showRegisterModal() {
+    document.getElementById('registerModal').style.display = 'flex';
+    document.getElementById('loginModal').style.display = 'none';
+    document.querySelectorAll('.grid-container img').forEach(img => img.classList.add('no-grayscale'));
+}
+
+function hideAuthModals() {
+    const loginModal = document.getElementById('loginModal');
+    const registerModal = document.getElementById('registerModal');
+    if (loginModal) loginModal.style.display = 'none';
+    if (registerModal) registerModal.style.display = 'none';
+    // Remettre le filtre sur les images de fond
+    document.querySelectorAll('.grid-container img').forEach(img => img.classList.remove('no-grayscale'));
+}
+
+function continueAsGuest() {
+    hideAuthModals();
+    window.location.href = '/begin';
+}
+
+async function registerAccount() {
+    const username = document.getElementById('register-username').value;
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+    const verifpassword = document.getElementById('register-verifpassword').value;
+
+    if (!username || !email || !password || !verifpassword) {
+        showError('Tous les champs sont obligatoires.', 3000);
+        return;
     }
 
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(email)) {
+        showError('Adresse e-mail invalide.', 3000);
+        return;
+    }
 
+    if (password !== verifpassword) {
+        showError('Les mots de passe ne correspondent pas.', 3000);
+        return;
+    }
+
+    if (password.length < 8) {
+        showError('Le mot de passe doit contenir au moins 8 caractères.', 3000);
+        return;
+    }
+
+    try {
+        const response = await fetch('/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nom: username, email, mot_de_passe: password })
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            showError(result.error, 3000);
+            return;
+        }
+        window.location.href = '/';
+    } catch (error) {
+        console.error('[Inscription] Erreur:', error.message);
+        showError(error.message, 3000);
+    }
+}
+
+async function connectAccount() {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    try {
+        const loginRes = await fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        const loginData = await loginRes.json();
+        if (!loginRes.ok) {
+            showError(loginData.error, 3000);
+            return;
+        }
+
+        sessionStorage.setItem('authToken', loginData.token);
+
+        // Récupérer les infos complètes de l'utilisateur pour les stocker en session
+        const userRes = await fetch(`/user?email=${encodeURIComponent(email)}`, {
+            headers: { 'Authorization': `Bearer ${loginData.token}` }
+        });
+        const userData = await userRes.json();
+        if (!userRes.ok) {
+            showError(userData.error, 3000);
+            return;
+        }
+
+        sessionStorage.setItem('userName', userData.name);
+        sessionStorage.setItem('userEmail', userData.email);
+        sessionStorage.setItem('userAdmin', userData.admin ? 'true' : 'false');
+
+        showSuccess('Connexion réussie. Bienvenue!', 1500);
+        setTimeout(() => { window.location.href = '/begin'; }, 1500);
+    } catch (error) {
+        console.error('[Connexion] Erreur:', error.message);
+        showError(error.message, 3000);
+    }
+}
+
+function initAuthModals() {
+    const accueilNav = document.getElementById('accueil');
+    const begin = document.getElementById('begin');
+    const loginButton = document.querySelector('.btn_login');
+    const registerLink = document.querySelector('.register_link');
+    const loginLink = document.querySelector('.login_link');
+    const closeModalButtons = document.querySelectorAll('.close-modal');
+    const btnContinueGuest = document.getElementById('btn-continue-guest');
+    const btnContinueGuestRegister = document.getElementById('btn-continue-guest-register');
+    const btnRegister = document.getElementById('btn-register');
+    const btnLogin = document.getElementById('btn-login');
+
+    if (accueilNav) accueilNav.addEventListener('click', () => window.location.href = '/');
+
+    // Bouton "Commencer" : redirige vers /begin si connecté, sinon ouvre le modal
     if (begin) {
-        begin.addEventListener('click', async function() {
+        begin.addEventListener('click', async function () {
             const token = sessionStorage.getItem('authToken');
             if (token) {
-                // vérification token
                 const isValid = await verifyToken();
-                if (isValid) {
-                    window.location.href = '/begin';
-                    return;
-                }
+                if (isValid) { window.location.href = '/begin'; return; }
             }
             showLoginModal();
         });
     }
 
+    if (loginButton) loginButton.addEventListener('click', showLoginModal);
+    if (registerLink) registerLink.addEventListener('click', showRegisterModal);
+    if (loginLink) loginLink.addEventListener('click', showLoginModal);
+    if (btnContinueGuest) btnContinueGuest.addEventListener('click', continueAsGuest);
+    if (btnContinueGuestRegister) btnContinueGuestRegister.addEventListener('click', continueAsGuest);
+    if (btnRegister) btnRegister.addEventListener('click', registerAccount);
+    if (btnLogin) btnLogin.addEventListener('click', connectAccount);
 
-    const loginModal = document.getElementById('loginModal');
-    const registerModal = document.getElementById('registerModal');
-    const loginButton = document.querySelector('.btn_login');
-    const registerLink = document.querySelector('.register_link');
-    const loginLink = document.querySelector('.login_link');
-    const closeModalButtons = document.querySelectorAll('.close-modal');
-    const images = document.querySelectorAll('.grid-container img');
-    const btnContinueGuest = document.getElementById('btn-continue-guest');
-    const btnContinueGuestRegister = document.getElementById('btn-continue-guest-register');
-    
+    // Fermer les modals avec les boutons "×"
+    closeModalButtons.forEach(button => button.addEventListener('click', hideAuthModals));
 
-    // Fonction pour afficher le modal de connexion
-    function showLoginModal() {
-        loginModal.style.display = 'flex';
-        registerModal.style.display = 'none';
-        images.forEach(img => img.classList.add('no-grayscale')); // Ajouter la classe pour désactiver le filtre
-    }
-
-    // Fonction pour afficher le modal d'inscription
-    function showRegisterModal() {
-        registerModal.style.display = 'flex';
-        loginModal.style.display = 'none';
-        images.forEach(img => img.classList.add('no-grayscale')); // Ajouter la classe pour désactiver le filtre
-    }
- 
-
-    // Ajouter des écouteurs d'événements
-    if (loginButton) {
-        loginButton.addEventListener('click', showLoginModal);
-    }
-
-    if (registerLink) {
-        registerLink.addEventListener('click', showRegisterModal);
-    }
-
-    if (loginLink) {
-        loginLink.addEventListener('click', showLoginModal);
-    }
-
-    if (btnContinueGuest) {
-        btnContinueGuest.addEventListener('click', continueAsGuest);
-    }
-
-    if (btnContinueGuestRegister) {
-        btnContinueGuestRegister.addEventListener('click', continueAsGuest);
-    }
-
-    // Fonction pour continuer sans compte
-    function continueAsGuest() {
-        loginModal.style.display = 'none';
-        registerModal.style.display = 'none';
-        window.location.href = '/begin';
-    }
-
-
-
-
-    // Fonction pour s'inscrire
-    const btn_register = document.getElementById('btn-register');
-
-    if (btn_register) {
-        btn_register.addEventListener('click', registerAccount);
-    }
-
-
-    async function registerAccount() {
-        const username = document.getElementById('register-username').value;
-        const email = document.getElementById('register-email').value;
-        const password = document.getElementById('register-password').value;
-        const verifpassword = document.getElementById('register-verifpassword').value;
-        const error = document.getElementById('register-error');
-
-        // Vérifications de sécurité côté client
-        if (!username || !email || !password || !verifpassword) {
-            showError('Tous les champs sont obligatoires.', 3000);
-            return;
-        }
-
-        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailPattern.test(email)) {
-            showError('Adresse e-mail invalide.', 3000);
-            return;
-        }
-
-        if (password !== verifpassword) {
-            showError('Les mots de passe ne correspondent pas.', 3000);
-            return;
-        }
-
-        if (password.length < 8) {
-            showError('Le mot de passe doit contenir au moins 8 caractères.', 3000);
-            return;
-        }
-
-        const data = { nom: username, email: email, mot_de_passe: password };
-
-        try {
-            const response = await fetch('/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            const result = await response.json();
-            if (!response.ok) {
-                showError(result.error, 3000);
-                return;
-            }
-            window.location.href = '/';
-        } catch (error) {
-            console.error('[Inscription] Erreur:', error.message);
-            showError(error.message, 3000);
-        }
-    }
-
-
-
-
-
-
-    // Fonction pour se connecter
-    const btn_login = document.getElementById('btn-login');
-
-    if(btn_login){
-        btn_login.addEventListener('click', connectAccount);
-    }
-    
-
-    
-    async function connectAccount() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-
-        try {
-            const loginRes = await fetch('/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-            const loginData = await loginRes.json();
-            if (!loginRes.ok) {
-                showError(loginData.error, 3000);
-                return;
-            }
-
-            sessionStorage.setItem('authToken', loginData.token);
-
-            const userRes = await fetch(`/user?email=${encodeURIComponent(email)}`, {
-                headers: { 'Authorization': `Bearer ${loginData.token}` }
-            });
-            const userData = await userRes.json();
-            if (!userRes.ok) {
-                showError(userData.error, 3000);
-                return;
-            }
-
-            sessionStorage.setItem('userName', userData.name);
-            sessionStorage.setItem('userEmail', userData.email);
-            sessionStorage.setItem('userAdmin', userData.admin ? 'true' : 'false');
-
-            showSuccess('Connexion réussie. Bienvenue!', 1500);
-            setTimeout(() => { window.location.href = '/begin'; }, 1500);
-        } catch (error) {
-            console.error('[Connexion] Erreur:', error.message);
-            showError(error.message, 3000);
-        }
-    }
-
-
-
-    
-
-
-    // Ajouter des écouteurs d'événements pour fermer les modals
-    closeModalButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            loginModal.style.display = 'none';
-            registerModal.style.display = 'none';
-            images.forEach(img => img.classList.remove('no-grayscale')); // Retirer la classe pour réactiver le filtre
-        });
-    });
-
-    // Fermer le modal lorsque l'utilisateur clique en dehors du modal
-    window.addEventListener('click', function(event) {
-        if (event.target === loginModal) {
-            loginModal.style.display = 'none';
-            images.forEach(img => img.classList.remove('no-grayscale')); // Retirer la classe pour réactiver le filtre
-        }
-        if (event.target === registerModal) {
-            registerModal.style.display = 'none';
-            images.forEach(img => img.classList.remove('no-grayscale')); // Retirer la classe pour réactiver le filtre
+    // Fermer en cliquant sur l'overlay
+    window.addEventListener('click', function (event) {
+        const loginModal = document.getElementById('loginModal');
+        const registerModal = document.getElementById('registerModal');
+        if (event.target === loginModal || event.target === registerModal) {
+            hideAuthModals();
         }
     });
-});
+}
 
-document.addEventListener('DOMContentLoaded', function () {
+// ====== SIDEBAR ======
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('collapsed');
+    // La classe 'transitioning' bloque les interactions pendant l'animation CSS
+    sidebar.classList.add('transitioning');
+    setTimeout(() => sidebar.classList.remove('transitioning'), 300);
+}
+
+function initSidebar() {
     const sidebar = document.getElementById('sidebar');
     const collapseBtn = document.getElementById('btn-collapse');
     const logoDiv = document.querySelector('.pro-sidebar-logo div');
 
-    function toggleSidebar() {
-        sidebar.classList.toggle('collapsed');
-        sidebar.classList.add('transitioning');
-        setTimeout(() => {
-            sidebar.classList.remove('transitioning');
-        }, 300);
-    }
-
     if (sidebar && collapseBtn) {
         collapseBtn.addEventListener('click', toggleSidebar);
     }
+
+    // Cliquer sur le logo quand la sidebar est réduite la réouvre
     if (logoDiv) {
-        logoDiv.addEventListener('click', function() {
-            if (sidebar.classList.contains('collapsed')) {
+        logoDiv.addEventListener('click', function () {
+            if (document.getElementById('sidebar').classList.contains('collapsed')) {
                 toggleSidebar();
             }
         });
     }
-});
+}
 
-// Charger les discussions de l'utilisateur dans la sidebar
+// ====== LISTE DES DISCUSSIONS ======
+
 async function loadDiscussions() {
     const token = sessionStorage.getItem('authToken');
     const email = sessionStorage.getItem('userEmail');
 
-    if (!token || !email) {
-        return;
-    }
+    if (!token || !email) return;
 
     try {
         const userResponse = await fetch(`/user?email=${encodeURIComponent(email)}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const userData = await userResponse.json();
-
         if (!userData || !userData.id) return;
 
+        // Charger les conversations actives et archivées en parallèle
         const [conversationsResponse, archivedResponse] = await Promise.all([
             fetch(`/conversations/user/${userData.id}`, { headers: { 'Authorization': `Bearer ${token}` } }),
             fetch('/api/user/archived-conversations', { headers: { 'Authorization': `Bearer ${token}` } })
@@ -279,25 +224,18 @@ async function loadDiscussions() {
         // Exclure les conversations archivées de la liste principale
         conversations = conversations.filter(c => !archivedIds.has(c.id));
 
-        // Vérifier s'il y a une nouvelle conversation à ajouter
+        // Si une nouvelle conversation vient d'être créée,
+        // on l'insère en tête de liste avant qu'elle n'apparaisse côté serveur
         const newConvString = localStorage.getItem('newConversation');
         if (newConvString) {
             const newConv = JSON.parse(newConvString);
-
-            // Vérifier si la conversation n'est pas déjà dans la liste
             const exists = conversations.some(conv => conv.id === newConv.id);
-            if (!exists) {
-                conversations.unshift(newConv);
-            }
-
-            // Supprimer du localStorage pour ne pas l'ajouter à nouveau
+            if (!exists) conversations.unshift(newConv);
             localStorage.removeItem('newConversation');
         }
 
         const discussionsList = document.getElementById('discussions-list');
-        if (!discussionsList) {
-            return;
-        }
+        if (!discussionsList) return;
 
         // Vider la liste sauf le header
         while (discussionsList.children.length > 1) {
@@ -336,36 +274,27 @@ async function loadDiscussions() {
     }
 }
 
-// Variable pour éviter les appels multiples
-let isLoadingDiscussions = false;
-
 async function safeLoadDiscussions() {
-    if (isLoadingDiscussions) {
-        return;
-    }
+    if (isLoadingDiscussions) return;
     isLoadingDiscussions = true;
     await loadDiscussions();
     isLoadingDiscussions = false;
 }
 
-// Fonction pour gérer le toggle du menu d'options
+// Affiche/cache le menu d'options d'une discussion, positionné à droite de la sidebar
 function toggleDiscussionMenu(conversationId) {
     const menu = document.querySelector(`.discussion-dropdown-menu[data-conversation-id="${conversationId}"]`);
     const button = document.querySelector(`.discussion-options-btn[data-conversation-id="${conversationId}"]`);
     if (!menu || !button) return;
 
-    // Fermer tous les autres menus
+    // Fermer tous les autres menus ouverts d'abord
     document.querySelectorAll('.discussion-dropdown-menu.show').forEach(m => {
         if (m !== menu) m.classList.remove('show');
     });
 
-    // Si on ouvre le menu, calculer sa position
     if (!menu.classList.contains('show')) {
         const buttonRect = button.getBoundingClientRect();
-        const sidebar = document.getElementById('sidebar');
-        const sidebarRect = sidebar.getBoundingClientRect();
-
-        // Positionner le menu à droite de la sidebar
+        const sidebarRect = document.getElementById('sidebar').getBoundingClientRect();
         menu.style.left = `${sidebarRect.right + 8}px`;
         menu.style.top = `${buttonRect.top + buttonRect.height / 2}px`;
         menu.style.transform = 'translateY(-50%)';
@@ -374,42 +303,32 @@ function toggleDiscussionMenu(conversationId) {
     menu.classList.toggle('show');
 }
 
-// Fonction pour supprimer une conversation
 async function deleteConversation(conversationId) {
     const token = sessionStorage.getItem('authToken');
-
     if (!token) {
         showError('Vous devez être connecté pour supprimer une conversation');
         return;
     }
 
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette conversation ?')) {
-        return;
-    }
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette conversation ?')) return;
 
     try {
         const response = await fetch(`/conversations/${conversationId}`, {
             method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
 
         if (response.ok) {
             showSuccess('Conversation supprimée avec succès');
 
-            // Vérifier si on est sur la conversation supprimée
+            // Si on était sur cette conversation, rediriger vers le début
             const urlParams = new URLSearchParams(window.location.search);
             const currentConvId = urlParams.get('conversationId');
-
             if (currentConvId && parseInt(currentConvId) === parseInt(conversationId)) {
-                // Rediriger vers la page begin si on supprime la conversation actuelle
                 window.location.href = '/begin';
                 return;
             }
 
-            // Sinon recharger la liste des discussions
             await loadDiscussions();
         } else {
             showError('Erreur lors de la suppression de la conversation');
@@ -420,75 +339,67 @@ async function deleteConversation(conversationId) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(safeLoadDiscussions, 100);
-});
+function initDiscussionsEvents() {
+    // Délégation d'événements pour les clics dans la liste des discussions
+    document.addEventListener('click', function (e) {
 
-// Recharger les discussions quand on navigue vers la page
-window.addEventListener('pageshow', function() {
-    setTimeout(safeLoadDiscussions, 100);
-});
-
-// Event delegation pour les boutons d'options et les actions
-document.addEventListener('click', function(e) {
-    // Gérer le clic sur un lien de discussion
-    const discussionLink = e.target.closest('.discussion-link');
-    if (discussionLink) {
-        e.preventDefault();
-        const conversationId = discussionLink.dataset.conversationId;
-        if (conversationId) {
-            // Stocker l'ID de la conversation et rediriger vers /chat
-            localStorage.setItem('currentConversationId', conversationId);
-            window.location.href = `/chat?conversationId=${conversationId}`;
+        // Clic sur un lien de discussion → naviguer vers la conversation
+        const discussionLink = e.target.closest('.discussion-link');
+        if (discussionLink) {
+            e.preventDefault();
+            const conversationId = discussionLink.dataset.conversationId;
+            if (conversationId) {
+                localStorage.setItem('currentConversationId', conversationId);
+                window.location.href = `/chat?conversationId=${conversationId}`;
+            }
+            return;
         }
-        return;
-    }
 
-    // Gérer le clic sur le bouton d'options
-    const optionsBtn = e.target.closest('.discussion-options-btn');
-    if (optionsBtn) {
-        e.stopPropagation();
-        const conversationId = optionsBtn.dataset.conversationId;
-        toggleDiscussionMenu(conversationId);
-        return;
-    }
-
-    // Gérer le clic sur une action du menu
-    const dropdownItem = e.target.closest('.discussion-dropdown-menu .dropdown-item');
-    if (dropdownItem) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const menu = dropdownItem.closest('.discussion-dropdown-menu');
-        const conversationId = menu.dataset.conversationId;
-        const action = dropdownItem.dataset.action;
-
-        // Fermer le menu
-        menu.classList.remove('show');
-
-        // Exécuter l'action
-        if (action === 'delete') {
-            deleteConversation(conversationId);
-        } else if (action === 'edit') {
-            const titleEl = document.querySelector(`.discussion-link[data-conversation-id="${conversationId}"] .menu-title`);
-            const currentTitle = titleEl ? titleEl.textContent : '';
-            openRenameModal(conversationId, currentTitle);
-        } else if (action === 'archive') {
-            archiveConversation(conversationId);
+        // Clic sur le bouton "···" → ouvrir/fermer le menu d'options
+        const optionsBtn = e.target.closest('.discussion-options-btn');
+        if (optionsBtn) {
+            e.stopPropagation();
+            toggleDiscussionMenu(optionsBtn.dataset.conversationId);
+            return;
         }
-        return;
-    }
 
-    // Fermer tous les menus si on clique ailleurs
-    const clickedInsideMenu = e.target.closest('.discussion-dropdown-menu');
-    if (!clickedInsideMenu) {
-        document.querySelectorAll('.discussion-dropdown-menu.show').forEach(menu => {
+        // Clic sur une action du menu
+        const dropdownItem = e.target.closest('.discussion-dropdown-menu .dropdown-item');
+        if (dropdownItem) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const menu = dropdownItem.closest('.discussion-dropdown-menu');
+            const conversationId = menu.dataset.conversationId;
+            const action = dropdownItem.dataset.action;
             menu.classList.remove('show');
-        });
-    }
-});
 
-// ─── ARCHIVE ────────────────────────────────────────────────────────────────
+            if (action === 'delete') {
+                deleteConversation(conversationId);
+            } else if (action === 'edit') {
+                const titleEl = document.querySelector(`.discussion-link[data-conversation-id="${conversationId}"] .menu-title`);
+                openRenameModal(conversationId, titleEl ? titleEl.textContent : '');
+            } else if (action === 'archive') {
+                archiveConversation(conversationId);
+            }
+            return;
+        }
+
+        // Clic n'importe où ailleurs → fermer tous les menus ouverts
+        if (!e.target.closest('.discussion-dropdown-menu')) {
+            document.querySelectorAll('.discussion-dropdown-menu.show').forEach(menu => {
+                menu.classList.remove('show');
+            });
+        }
+    });
+
+    // Recharger les discussions au retour sur la page
+    window.addEventListener('pageshow', function () {
+        setTimeout(safeLoadDiscussions, 100);
+    });
+}
+
+// ====== ARCHIVAGE ======
 
 async function archiveConversation(conversationId) {
     const token = sessionStorage.getItem('authToken');
@@ -503,7 +414,7 @@ async function archiveConversation(conversationId) {
 
         showSuccess('Conversation archivée');
 
-        // Si on est sur cette conversation, rediriger
+        // Rediriger si on était sur cette conversation
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('conversationId') == conversationId) {
             window.location.href = '/begin';
@@ -527,8 +438,8 @@ async function unarchiveConversation(conversationId) {
         if (!res.ok) throw new Error();
 
         showSuccess('Conversation désarchivée');
-        await openArchiveModal(); // rafraîchir la liste
-        await safeLoadDiscussions();
+        await openArchiveModal();     // Rafraîchir la liste du modal
+        await safeLoadDiscussions();  // Rafraîchir la sidebar
     } catch {
         showError('Erreur lors du désarchivage');
     }
@@ -583,9 +494,7 @@ function closeArchiveModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// ─── RENAME TITRE ─────────────────────────────────────────────────────────────────
-
-let _renameConversationId = null;
+// ====== RENOMMAGE ======
 
 function openRenameModal(conversationId, currentTitle) {
     _renameConversationId = conversationId;
@@ -595,6 +504,7 @@ function openRenameModal(conversationId, currentTitle) {
 
     input.value = currentTitle || '';
     modal.style.display = 'flex';
+    // Petit délai pour que le modal soit visible avant de mettre le focus
     setTimeout(() => { input.focus(); input.select(); }, 50);
 }
 
@@ -628,9 +538,7 @@ async function renameConversation() {
     }
 }
 
-// ─── Init listeners archive + rename ────────────────────────────────────────
-
-document.addEventListener('DOMContentLoaded', function () {
+function initArchiveRenameModal() {
     // Bouton Archives dans la sidebar
     const archiveBtn = document.getElementById('archive-conversations-btn');
     if (archiveBtn) {
@@ -646,7 +554,7 @@ document.addEventListener('DOMContentLoaded', function () {
         renameConfirmBtn.addEventListener('click', renameConversation);
     }
 
-    // Valider avec Entrée
+    // Clavier dans le champ rename
     const renameInput = document.getElementById('rename-input');
     if (renameInput) {
         renameInput.addEventListener('keydown', (e) => {
@@ -654,4 +562,17 @@ document.addEventListener('DOMContentLoaded', function () {
             if (e.key === 'Escape') closeRenameModal();
         });
     }
+}
+
+// ====== INITIALISATION ======
+
+document.addEventListener('DOMContentLoaded', function () {
+    updateInfo();              // Vérifier si l'utilisateur est connecté et mettre à jour l'UI
+    initAuthModals();          // Modals connexion / inscription
+    initSidebar();             // Collapse de la sidebar
+    initDiscussionsEvents();   // Délégation de clics sur les discussions
+    initArchiveRenameModal();  // Modals archivage et renommage
+
+    // Charger les discussions avec un petit délai pour laisser le DOM se stabiliser
+    setTimeout(safeLoadDiscussions, 100);
 });
