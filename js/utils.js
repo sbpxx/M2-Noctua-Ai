@@ -1,3 +1,9 @@
+// utils.js
+// Utilitaires partagés sur toutes les pages : notifications, authentification,
+// paramètres utilisateur, session invité, panel admin et modals admin.
+
+// ====== NOTIFICATIONS ======
+
 function showError(message, duration) {
     const errorContainer = document.querySelector('.error-container');
     const errorMessage = document.querySelector('.error-message p');
@@ -6,7 +12,6 @@ function showError(message, duration) {
         errorMessage.textContent = message;
         errorContainer.style.display = 'block';
 
-        // Masquer le message d'erreur après le délai spécifié
         setTimeout(() => {
             errorContainer.style.display = 'none';
         }, duration);
@@ -27,7 +32,9 @@ function showSuccess(message, duration) {
     }
 }
 
-// Fonction pour vérifier le JWT
+// ====== AUTHENTIFICATION UTILISATEUR ======
+
+// Vérifie que le JWT en session est encore valide côté serveur
 async function verifyToken() {
     const token = sessionStorage.getItem('authToken');
     if (!token) return false;
@@ -37,7 +44,6 @@ async function verifyToken() {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
         if (!response.ok) throw new Error();
         return true;
     } catch {
@@ -45,6 +51,7 @@ async function verifyToken() {
     }
 }
 
+// Vérifie le token et met à jour le bouton utilisateur dans la sidebar
 async function updateInfo() {
     const token = sessionStorage.getItem('authToken');
     const userName = sessionStorage.getItem('userName');
@@ -58,7 +65,7 @@ async function updateInfo() {
     updateUserButton(isValid, isValid ? userName : null);
 }
 
-// fonction pour mettre à jour le bouton utilisateur dans la sidebar
+// Met à jour le bouton utilisateur selon l'état de connexion
 function updateUserButton(isConnected, userName) {
     const userBtn = document.getElementById('user-connection-btn');
     const userText = userBtn?.querySelector('.user-text');
@@ -81,22 +88,18 @@ function updateUserButton(isConnected, userName) {
 
         userBtn.onclick = () => {
             const loginModal = document.getElementById('loginModal');
-            if (loginModal) {
-                loginModal.style.display = 'flex';
-            }
+            if (loginModal) loginModal.style.display = 'flex';
         };
     }
 }
 
-// fonction pour afficher/masquer le menu déroulant
 function toggleDropdownMenu() {
     const dropdownMenu = document.getElementById('user-dropdown-menu');
     if (!dropdownMenu) return;
-
     dropdownMenu.classList.toggle('show');
 }
 
-// fonction pour fermer le menu déroulant si on clique ailleurs
+// Fermer le menu déroulant si on clique en dehors
 document.addEventListener('click', (e) => {
     const dropdownMenu = document.getElementById('user-dropdown-menu');
     const userBtn = document.getElementById('user-connection-btn');
@@ -106,94 +109,41 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// fonction pour gérer la déconnexion
 function handleLogout() {
-    // Supprimer les informations de session
     sessionStorage.removeItem('authToken');
     sessionStorage.removeItem('userName');
     sessionStorage.removeItem('userEmail');
     sessionStorage.removeItem('userAdmin');
 
-    // Fermer le menu déroulant
     const dropdownMenu = document.getElementById('user-dropdown-menu');
-    if (dropdownMenu) {
-        dropdownMenu.classList.remove('show');
-    }
+    if (dropdownMenu) dropdownMenu.classList.remove('show');
 
-    // Mettre à jour l'interface
     updateUserButton(false, null);
-
     showSuccess('Vous avez été déconnecté avec succès', 3000);
 
     // Rediriger vers begin si on est sur la page chat
     if (window.location.pathname === '/chat') {
-        setTimeout(() => {
-            window.location.href = '/begin';
-        }, 1500);
+        setTimeout(() => { window.location.href = '/begin'; }, 1500);
     }
 }
 
-// Attacher l'événement de déconnexion au bouton
-document.addEventListener('DOMContentLoaded', () => {
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            handleLogout();
-        });
-    }
+// ====== PARAMÈTRES UTILISATEUR ======
 
-    // Gestion de l'ouverture de la modale paramètres
-    const settingsBtn = document.getElementById('settings-btn');
-    if (settingsBtn) {
-        settingsBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            openSettingsModal();
-        });
-    }
-
-    // Gestion de la navigation dans les paramètres
-    initSettingsNavigation();
-
-    // Modal modification nom d'utilisateur
-    const changeUsernameBtn = document.getElementById('change-username-btn');
-    if (changeUsernameBtn) changeUsernameBtn.addEventListener('click', openUsernameModal);
-
-    const usernameConfirmBtn = document.getElementById('username-confirm-btn');
-    if (usernameConfirmBtn) usernameConfirmBtn.addEventListener('click', confirmUsernameChange);
-
-    const usernameModalInput = document.getElementById('username-modal-input');
-    if (usernameModalInput) {
-        usernameModalInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') confirmUsernameChange();
-            if (e.key === 'Escape') closeUsernameModal();
-        });
-    }
-});
-
-// fonction pour ouvrir la modale paramètres
 function openSettingsModal() {
     const settingsModal = document.getElementById('settingsModal');
     const dropdownMenu = document.getElementById('user-dropdown-menu');
     const adminMenu = document.getElementById('settings-admin-menu');
 
-    if (settingsModal) {
-        settingsModal.style.display = 'flex';
-    }
+    if (settingsModal) settingsModal.style.display = 'flex';
 
-    // Afficher/masquer le menu Administration selon le statut admin
+    // Afficher ou masquer le menu Administration selon le statut admin
     const isAdmin = sessionStorage.getItem('userAdmin') === 'true';
-    if (adminMenu) {
-        adminMenu.style.display = isAdmin ? 'flex' : 'none';
-    }
+    if (adminMenu) adminMenu.style.display = isAdmin ? 'flex' : 'none';
 
-    // Fermer le menu déroulant
-    if (dropdownMenu) {
-        dropdownMenu.classList.remove('show');
-    }
+    if (dropdownMenu) dropdownMenu.classList.remove('show');
 }
 
-// fonction pour initialiser la navigation dans les paramètres
+// Gère la navigation entre les sections du modal paramètres
 function initSettingsNavigation() {
     const menuItems = document.querySelectorAll('.settings-menu-item');
     const sections = document.querySelectorAll('.settings-section');
@@ -202,33 +152,24 @@ function initSettingsNavigation() {
         item.addEventListener('click', (e) => {
             e.preventDefault();
 
-            // Récupérer la section à afficher
             const sectionId = item.getAttribute('data-section');
 
-            // Retirer la classe active de tous les éléments
             menuItems.forEach(mi => mi.classList.remove('active'));
             sections.forEach(s => s.classList.remove('active'));
 
-            // Ajouter la classe active à l'élément cliqué
             item.classList.add('active');
 
-            // Afficher la section correspondante
             const targetSection = document.getElementById(`section-${sectionId}`);
-            if (targetSection) {
-                targetSection.classList.add('active');
-            }
+            if (targetSection) targetSection.classList.add('active');
         });
     });
 
-    // Charger l'email de l'utilisateur dans les paramètres
     loadUserEmail();
-
-    // Gérer l'affichage des champs de mot de passe
     initPasswordChange();
 }
 
-// fonction pour charger l'email et le nom de l'utilisateur
-async function loadUserEmail() {
+// Pré-remplit les champs email et nom dans la section profil des paramètres
+function loadUserEmail() {
     const userEmail = sessionStorage.getItem('userEmail');
     const userName = sessionStorage.getItem('userName');
     const emailInput = document.getElementById('profile-email');
@@ -238,7 +179,6 @@ async function loadUserEmail() {
     if (usernameInput && userName) usernameInput.value = userName;
 }
 
-// Modification du nom d'utilisateur
 function openUsernameModal() {
     const modal = document.getElementById('usernameModal');
     const input = document.getElementById('username-modal-input');
@@ -246,6 +186,7 @@ function openUsernameModal() {
 
     input.value = sessionStorage.getItem('userName') || '';
     modal.style.display = 'flex';
+    // Petit délai pour que le modal soit visible avant de mettre le focus
     setTimeout(() => { input.focus(); input.select(); }, 50);
 }
 
@@ -280,7 +221,6 @@ async function confirmUsernameChange() {
     }
 }
 
-// fonction pour gérer le changement de mot de passe
 function initPasswordChange() {
     const changePasswordBtn = document.getElementById('change-password-btn');
     const passwordFields = document.getElementById('password-fields');
@@ -289,14 +229,13 @@ function initPasswordChange() {
 
     if (changePasswordBtn && passwordFields) {
         changePasswordBtn.addEventListener('click', () => {
-            // Afficher/masquer les champs de mot de passe
+            // Basculer l'affichage des champs
             if (passwordFields.style.display === 'none') {
                 passwordFields.style.display = 'block';
                 changePasswordBtn.textContent = 'Annuler';
             } else {
                 passwordFields.style.display = 'none';
                 changePasswordBtn.textContent = 'Modifier le mot de passe';
-                // Réinitialiser les champs
                 document.getElementById('old-password').value = '';
                 document.getElementById('new-password').value = '';
                 document.getElementById('confirm-password').value = '';
@@ -311,28 +250,24 @@ function initPasswordChange() {
             const newPassword = document.getElementById('new-password').value;
             const confirmPassword = document.getElementById('confirm-password').value;
 
-            // Vérifier que tous les champs sont remplis
             if (!oldPassword || !newPassword || !confirmPassword) {
                 passwordError.textContent = 'Veuillez remplir tous les champs';
                 passwordError.style.display = 'block';
                 return;
             }
 
-            // Vérifier que les deux mots de passe correspondent
             if (newPassword !== confirmPassword) {
                 passwordError.textContent = 'Les mots de passe ne correspondent pas';
                 passwordError.style.display = 'block';
                 return;
             }
 
-            // Vérifier la longueur du mot de passe
             if (newPassword.length < 8) {
                 passwordError.textContent = 'Le mot de passe doit contenir au moins 8 caractères';
                 passwordError.style.display = 'block';
                 return;
             }
 
-            // Envoyer la requête au backend
             try {
                 const token = sessionStorage.getItem('authToken');
                 const userEmail = sessionStorage.getItem('userEmail');
@@ -345,8 +280,8 @@ function initPasswordChange() {
                     },
                     body: JSON.stringify({
                         email: userEmail,
-                        oldPassword: oldPassword,
-                        newPassword: newPassword
+                        oldPassword,
+                        newPassword
                     })
                 });
 
@@ -354,7 +289,6 @@ function initPasswordChange() {
 
                 if (response.ok) {
                     showSuccess('Mot de passe modifié avec succès', 3000);
-                    // Réinitialiser les champs
                     document.getElementById('old-password').value = '';
                     document.getElementById('new-password').value = '';
                     document.getElementById('confirm-password').value = '';
@@ -374,13 +308,13 @@ function initPasswordChange() {
     }
 }
 
-// gestion invité 
+// ====== SESSION INVITÉ ======
 
 function isGuestUser() {
-    const token = sessionStorage.getItem('authToken');
-    return !token;
+    return !sessionStorage.getItem('authToken');
 }
 
+// Génère ou récupère un identifiant de session invité unique
 function getGuestSessionId() {
     let guestId = sessionStorage.getItem('guestSessionId');
     if (!guestId) {
@@ -397,13 +331,12 @@ function clearGuestSession() {
 }
 
 function isGuestConversation(conversationId) {
-    const guestConvId = sessionStorage.getItem('guestConversationId');
-    return guestConvId === conversationId;
+    return sessionStorage.getItem('guestConversationId') === conversationId;
 }
 
-// Admin Panel
+// ====== PANEL D'ADMINISTRATION — MISTRAL ======
 
-// Mettre à jour l'affichage du statut Mistral
+// Met à jour l'affichage du statut du serveur Mistral
 function updateMistralStatus(status) {
     const statusIndicator = document.querySelector('#mistral-status .status-indicator');
     const statusText = document.querySelector('#mistral-status .status-text');
@@ -441,7 +374,6 @@ function updateMistralStatus(status) {
     }
 }
 
-// Récupérer le statut de Mistral
 async function getMistralStatus() {
     const token = sessionStorage.getItem('authToken');
     if (!token) return;
@@ -460,10 +392,9 @@ async function getMistralStatus() {
     }
 }
 
-// Flag pour éviter les requêtes multiples
+// Flag pour éviter les clics multiples pendant une action en cours
 let mistralActionInProgress = false;
 
-// Démarrer Mistral
 async function startMistral() {
     if (mistralActionInProgress) return;
 
@@ -481,18 +412,15 @@ async function startMistral() {
         const data = await response.json();
 
         if (data.status === 'loading') {
-            // Démarrage en cours, vérifier le statut après 10 secondes
+            // Le démarrage prend du temps, on revérifie le statut après 10s
             showSuccess(data.message, 5000);
             setTimeout(async () => {
                 await getMistralStatus();
                 mistralActionInProgress = false;
             }, 10000);
         } else {
-            if (data.success) {
-                showSuccess(data.message, 3000);
-            } else {
-                showError(data.message, 3000);
-            }
+            if (data.success) showSuccess(data.message, 3000);
+            else showError(data.message, 3000);
             updateMistralStatus(data.status);
             mistralActionInProgress = false;
         }
@@ -504,7 +432,6 @@ async function startMistral() {
     }
 }
 
-// Arrêter Mistral
 async function stopMistral() {
     if (mistralActionInProgress) return;
 
@@ -521,11 +448,8 @@ async function stopMistral() {
         });
         const data = await response.json();
 
-        if (data.success) {
-            showSuccess(data.message, 3000);
-        } else {
-            showError(data.message, 3000);
-        }
+        if (data.success) showSuccess(data.message, 3000);
+        else showError(data.message, 3000);
         updateMistralStatus(data.status);
     } catch (error) {
         console.error('Erreur arrêt Mistral:', error);
@@ -536,24 +460,18 @@ async function stopMistral() {
     }
 }
 
-// Initialiser les événements admin
 function initAdminControls() {
     const startBtn = document.getElementById('start-mistral-btn');
     const stopBtn = document.getElementById('stop-mistral-btn');
 
-    if (startBtn) {
-        startBtn.addEventListener('click', startMistral);
-    }
-    if (stopBtn) {
-        stopBtn.addEventListener('click', stopMistral);
-    }
+    if (startBtn) startBtn.addEventListener('click', startMistral);
+    if (stopBtn) stopBtn.addEventListener('click', stopMistral);
 }
 
-// Modal Recherche de Conversations
+// ====== MODAL RECHERCHE DE CONVERSATIONS ======
 
-let allConversationsCache = [];
+let allConversationsCache = [];  // Cache pour ne pas refaire la requête à chaque frappe
 
-// Ouvrir le modal recherche
 function openSearchModal() {
     const searchModal = document.getElementById('searchModal');
     if (searchModal) {
@@ -567,24 +485,18 @@ function openSearchModal() {
     }
 }
 
-// Fermer le modal de recherche
 function closeSearchModal() {
     const searchModal = document.getElementById('searchModal');
-    if (searchModal) {
-        searchModal.style.display = 'none';
-    }
-    // Réinitialiser les résultats
+    if (searchModal) searchModal.style.display = 'none';
+
     const searchResults = document.getElementById('search-results');
     if (searchResults) {
         searchResults.innerHTML = '<p class="search-empty-state">Commencez à taper pour rechercher vos conversations</p>';
     }
     const clearBtn = document.getElementById('search-clear-btn');
-    if (clearBtn) {
-        clearBtn.style.display = 'none';
-    }
+    if (clearBtn) clearBtn.style.display = 'none';
 }
 
-// Charger les conversations pour recherche
 async function loadConversationsForSearch() {
     const token = sessionStorage.getItem('authToken');
     const email = sessionStorage.getItem('userEmail');
@@ -608,9 +520,7 @@ async function loadConversationsForSearch() {
         });
         allConversationsCache = await conversationsResponse.json();
 
-        // Afficher toutes les conversations initialement
         displaySearchResults(allConversationsCache, '');
-
     } catch (error) {
         console.error('Erreur chargement conversations:', error);
         const searchResults = document.getElementById('search-results');
@@ -620,14 +530,11 @@ async function loadConversationsForSearch() {
     }
 }
 
-// Filtrer et afficher les résultats
 function filterConversations(query) {
     const searchTerm = query.toLowerCase().trim();
     const clearBtn = document.getElementById('search-clear-btn');
 
-    if (clearBtn) {
-        clearBtn.style.display = searchTerm ? 'flex' : 'none';
-    }
+    if (clearBtn) clearBtn.style.display = searchTerm ? 'flex' : 'none';
 
     if (!searchTerm) {
         displaySearchResults(allConversationsCache, '');
@@ -637,38 +544,27 @@ function filterConversations(query) {
     const filtered = allConversationsCache.filter(conv =>
         conv.title.toLowerCase().includes(searchTerm)
     );
-
     displaySearchResults(filtered, searchTerm);
 }
 
-// Afficher les résultats de recherche
 function displaySearchResults(conversations, searchTerm) {
     const searchResults = document.getElementById('search-results');
     if (!searchResults) return;
 
     if (conversations.length === 0) {
-        if (searchTerm) {
-            searchResults.innerHTML = `
-                <div class="search-no-results">
-                    <i class="ri-search-line"></i>
-                    Aucune conversation trouvée pour "${searchTerm}"
-                </div>
-            `;
-        } else {
-            searchResults.innerHTML = '<p class="search-no-results"><i class="ri-chat-3-line"></i>Aucune conversation</p>';
-        }
+        searchResults.innerHTML = searchTerm
+            ? `<div class="search-no-results"><i class="ri-search-line"></i>Aucune conversation trouvée pour "${searchTerm}"</div>`
+            : '<p class="search-no-results"><i class="ri-chat-3-line"></i>Aucune conversation</p>';
         return;
     }
 
     const html = conversations.map(conv => {
-        const title = highlightSearchTerm(conv.title, searchTerm);
-        const date = formatConversationDate(conv.updated_at || conv.created_at);
+        const title = highlightText(conv.title, searchTerm);
+        const date = formatRelativeDate(conv.updated_at || conv.created_at);
 
         return `
             <div class="search-result-item" data-conversation-id="${conv.id}">
-                <div class="search-result-icon">
-                    <i class="ri-chat-3-line"></i>
-                </div>
+                <div class="search-result-icon"><i class="ri-chat-3-line"></i></div>
                 <div class="search-result-content">
                     <p class="search-result-title">${title}</p>
                     <p class="search-result-date">${date}</p>
@@ -680,68 +576,19 @@ function displaySearchResults(conversations, searchTerm) {
 
     searchResults.innerHTML = html;
 
-    // Ajouter les event listeners pour chaque résultat
     searchResults.querySelectorAll('.search-result-item').forEach(item => {
         item.addEventListener('click', () => {
-            const conversationId = item.dataset.conversationId;
-            navigateToConversation(conversationId);
+            navigateToConversation(item.dataset.conversationId);
         });
     });
 }
 
-// Mettre en surbrillance le terme recherché
-function highlightSearchTerm(text, searchTerm) {
-    if (!searchTerm) return escapeHtml(text);
-
-    const escaped = escapeHtml(text);
-    const regex = new RegExp(`(${escapeRegex(searchTerm)})`, 'gi');
-    return escaped.replace(regex, '<mark>$1</mark>');
-}
-
-// gestn pour les caractères spéciaux pour regex
-function escapeRegex(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// Échapper le HTML
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// Formater la date de conversation
-function formatConversationDate(dateString) {
-    if (!dateString) return '';
-
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-        return "Aujourd'hui";
-    } else if (diffDays === 1) {
-        return "Hier";
-    } else if (diffDays < 7) {
-        return `Il y a ${diffDays} jours`;
-    } else {
-        return date.toLocaleDateString('fr-FR', {
-            day: 'numeric',
-            month: 'short',
-            year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-        });
-    }
-}
-
-// Naviguer vers une conversation
 function navigateToConversation(conversationId) {
     closeSearchModal();
     localStorage.setItem('currentConversationId', conversationId);
     window.location.href = `/chat?conversationId=${conversationId}`;
 }
 
-// Initialiser les événements du modal de recherche
 function initSearchModal() {
     const searchBtn = document.getElementById('search-conversations-btn');
     const searchInput = document.getElementById('search-conversations-input');
@@ -756,81 +603,54 @@ function initSearchModal() {
     }
 
     if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            filterConversations(e.target.value);
-        });
-
-        searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeSearchModal();
-            }
-        });
+        searchInput.addEventListener('input', (e) => filterConversations(e.target.value));
+        searchInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSearchModal(); });
     }
 
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
-            if (searchInput) {
-                searchInput.value = '';
-                searchInput.focus();
-            }
+            if (searchInput) { searchInput.value = ''; searchInput.focus(); }
             filterConversations('');
         });
     }
 
-    // Fermer en cliquant sur l'overlay
     if (searchModal) {
         searchModal.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal-overlay')) {
-                closeSearchModal();
-            }
+            if (e.target.classList.contains('modal-overlay')) closeSearchModal();
         });
     }
 }
 
-// Modal Gestion des Utilisateurs (Admin)
+// ====== MODAL GESTION DES UTILISATEURS (ADMIN) ======
 
 let usersSearchTimeout = null;
 
-// Ouvrir le modal de gestion des utilisateurs
 function openUsersModal() {
     const usersModal = document.getElementById('usersModal');
     if (usersModal) {
         usersModal.style.display = 'flex';
         const searchInput = document.getElementById('users-search-input');
-        if (searchInput) {
-            searchInput.value = '';
-            searchInput.focus();
-        }
+        if (searchInput) { searchInput.value = ''; searchInput.focus(); }
         loadUsersForManagement('');
     }
 }
 
-// Fermer le modal de gestion des utilisateurs
 function closeUsersModal() {
     const usersModal = document.getElementById('usersModal');
-    if (usersModal) {
-        usersModal.style.display = 'none';
-    }
+    if (usersModal) usersModal.style.display = 'none';
+
     const clearBtn = document.getElementById('users-clear-btn');
-    if (clearBtn) {
-        clearBtn.style.display = 'none';
-    }
+    if (clearBtn) clearBtn.style.display = 'none';
 }
 
-// Charger les utilisateurs
 async function loadUsersForManagement(search) {
     const token = sessionStorage.getItem('authToken');
-
-    if (!token) {
-        return;
-    }
+    if (!token) return;
 
     const usersResults = document.getElementById('users-results');
     const usersCount = document.getElementById('users-count');
 
-    if (usersResults) {
-        usersResults.innerHTML = '<p class="users-empty-state">Chargement...</p>';
-    }
+    if (usersResults) usersResults.innerHTML = '<p class="users-empty-state">Chargement...</p>';
 
     try {
         const url = search
@@ -840,10 +660,7 @@ async function loadUsersForManagement(search) {
         const response = await fetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
-        if (!response.ok) {
-            throw new Error('Erreur lors de la récupération');
-        }
+        if (!response.ok) throw new Error('Erreur lors de la récupération');
 
         const users = await response.json();
         displayUsersResults(users, search);
@@ -851,7 +668,6 @@ async function loadUsersForManagement(search) {
         if (usersCount) {
             usersCount.textContent = `${users.length} utilisateur${users.length > 1 ? 's' : ''} affiché${users.length > 1 ? 's' : ''} (max 25)`;
         }
-
     } catch (error) {
         console.error('Erreur chargement utilisateurs:', error);
         if (usersResults) {
@@ -860,7 +676,6 @@ async function loadUsersForManagement(search) {
     }
 }
 
-// Afficher les résultats utilisateurs
 function displayUsersResults(users, searchTerm) {
     const usersResults = document.getElementById('users-results');
     if (!usersResults) return;
@@ -880,7 +695,7 @@ function displayUsersResults(users, searchTerm) {
     const html = users.map(user => {
         const isAdmin = user.admin;
         const isSelf = user.id === currentUserId;
-        const emailDisplay = highlightUserSearchTerm(user.email, searchTerm);
+        const emailDisplay = highlightText(user.email, searchTerm);
 
         return `
             <div class="user-item" data-user-id="${user.id}">
@@ -894,8 +709,7 @@ function displayUsersResults(users, searchTerm) {
                 <span class="user-badge ${isAdmin ? 'admin' : 'user'}">${isAdmin ? 'Admin' : 'User'}</span>
                 ${isSelf ? `
                     <button class="user-admin-btn promote" disabled title="Vous ne pouvez pas modifier votre propre statut">
-                        <i class="ri-lock-line"></i>
-                        <span>Vous</span>
+                        <i class="ri-lock-line"></i><span>Vous</span>
                     </button>
                 ` : `
                     <button class="user-admin-btn ${isAdmin ? 'demote' : 'promote'}"
@@ -912,7 +726,7 @@ function displayUsersResults(users, searchTerm) {
     usersResults.innerHTML = html;
 }
 
-// Obtenir l'ID de l'utilisateur courant depuis le token
+// Décoder l'ID utilisateur depuis le payload JWT sans appel API
 function getCurrentUserId() {
     const token = sessionStorage.getItem('authToken');
     if (!token) return null;
@@ -925,16 +739,6 @@ function getCurrentUserId() {
     }
 }
 
-// Mettre en surbrillance le terme recherché
-function highlightUserSearchTerm(text, searchTerm) {
-    if (!searchTerm) return escapeHtml(text);
-
-    const escaped = escapeHtml(text);
-    const regex = new RegExp(`(${escapeRegex(searchTerm)})`, 'gi');
-    return escaped.replace(regex, '<mark>$1</mark>');
-}
-
-// Basculer le statut admin d'un utilisateur
 async function toggleUserAdmin(userId) {
     const token = sessionStorage.getItem('authToken');
     if (!token) return;
@@ -948,54 +752,72 @@ async function toggleUserAdmin(userId) {
     try {
         const response = await fetch(`/api/admin/users/${userId}/toggle-admin`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
-
         const data = await response.json();
 
         if (response.ok) {
             showSuccess(data.message, 3000);
-            // Recharger la liste
+            // Recharger la liste pour refléter le nouveau statut
             const searchInput = document.getElementById('users-search-input');
-            const searchTerm = searchInput ? searchInput.value : '';
-            loadUsersForManagement(searchTerm);
+            loadUsersForManagement(searchInput ? searchInput.value : '');
         } else {
             showError(data.error || 'Erreur lors de la modification', 3000);
-            if (btn) {
-                btn.disabled = false;
-            }
+            if (btn) btn.disabled = false;
         }
     } catch (error) {
         console.error('Erreur toggle admin:', error);
         showError('Erreur lors de la modification', 3000);
-        if (btn) {
-            btn.disabled = false;
-        }
+        if (btn) btn.disabled = false;
     }
 }
 
-// Filtrer les utilisateurs 
+// Filtre avec debounce pour ne pas spammer l'API à chaque frappe
 function filterUsers(query) {
     const clearBtn = document.getElementById('users-clear-btn');
-    if (clearBtn) {
-        clearBtn.style.display = query ? 'flex' : 'none';
-    }
+    if (clearBtn) clearBtn.style.display = query ? 'flex' : 'none';
 
-    if (usersSearchTimeout) {
-        clearTimeout(usersSearchTimeout);
-    }
+    if (usersSearchTimeout) clearTimeout(usersSearchTimeout);
 
     usersSearchTimeout = setTimeout(() => {
         loadUsersForManagement(query);
     }, 300);
 }
 
-// Modal Logs d'Administration
+function initUsersModal() {
+    const manageUsersBtn = document.getElementById('manage-users-btn');
+    const searchInput = document.getElementById('users-search-input');
+    const clearBtn = document.getElementById('users-clear-btn');
+    const usersModal = document.getElementById('usersModal');
 
-// Ouvrir le modal des logs
+    if (manageUsersBtn) {
+        manageUsersBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openUsersModal();
+        });
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => filterUsers(e.target.value));
+        searchInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeUsersModal(); });
+    }
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            if (searchInput) { searchInput.value = ''; searchInput.focus(); }
+            filterUsers('');
+        });
+    }
+
+    if (usersModal) {
+        usersModal.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) closeUsersModal();
+        });
+    }
+}
+
+// ====== MODAL LOGS D'ADMINISTRATION ======
+
 function openLogsModal() {
     const logsModal = document.getElementById('logsModal');
     if (logsModal) {
@@ -1004,15 +826,11 @@ function openLogsModal() {
     }
 }
 
-// Fermer le modal des logs
 function closeLogsModal() {
     const logsModal = document.getElementById('logsModal');
-    if (logsModal) {
-        logsModal.style.display = 'none';
-    }
+    if (logsModal) logsModal.style.display = 'none';
 }
 
-// Charger les logs admin
 async function loadAdminLogs() {
     const token = sessionStorage.getItem('authToken');
     if (!token) return;
@@ -1020,18 +838,13 @@ async function loadAdminLogs() {
     const logsContainer = document.getElementById('logs-container');
     const logsCount = document.getElementById('logs-count');
 
-    if (logsContainer) {
-        logsContainer.innerHTML = '<p class="logs-empty-state">Chargement...</p>';
-    }
+    if (logsContainer) logsContainer.innerHTML = '<p class="logs-empty-state">Chargement...</p>';
 
     try {
         const response = await fetch('/api/admin/logs?limit=50', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
-        if (!response.ok) {
-            throw new Error('Erreur lors de la récupération');
-        }
+        if (!response.ok) throw new Error('Erreur lors de la récupération');
 
         const logs = await response.json();
         displayLogs(logs);
@@ -1039,7 +852,6 @@ async function loadAdminLogs() {
         if (logsCount) {
             logsCount.textContent = `${logs.length} log${logs.length > 1 ? 's' : ''} (50 derniers)`;
         }
-
     } catch (error) {
         console.error('Erreur chargement logs:', error);
         if (logsContainer) {
@@ -1048,7 +860,6 @@ async function loadAdminLogs() {
     }
 }
 
-// Afficher les logs
 function displayLogs(logs) {
     const logsContainer = document.getElementById('logs-container');
     if (!logsContainer) return;
@@ -1061,13 +872,11 @@ function displayLogs(logs) {
     const html = logs.map(log => {
         const iconClass = getLogIconClass(log.action);
         const icon = getLogIcon(log.action);
-        const date = formatLogDate(log.created_at);
+        const date = formatRelativeDate(log.created_at, true);
 
         return `
             <div class="log-item">
-                <div class="log-icon ${iconClass}">
-                    <i class="${icon}"></i>
-                </div>
+                <div class="log-icon ${iconClass}"><i class="${icon}"></i></div>
                 <div class="log-content">
                     <p class="log-action">${escapeHtml(log.action)}</p>
                     <div class="log-meta">
@@ -1083,59 +892,19 @@ function displayLogs(logs) {
 }
 
 function getLogIconClass(action) {
-    if (action.includes('Démarrage') || action.includes('Arrêt')) {
-        return 'server';
-    } else if (action.includes('Promotion')) {
-        return 'admin';
-    } else if (action.includes('Retrait')) {
-        return 'demote';
-    }
+    if (action.includes('Promotion')) return 'admin';
+    if (action.includes('Retrait')) return 'demote';
     return 'server';
 }
 
 function getLogIcon(action) {
-    if (action.includes('Démarrage')) {
-        return 'ri-play-circle-line';
-    } else if (action.includes('Arrêt')) {
-        return 'ri-stop-circle-line';
-    } else if (action.includes('Promotion')) {
-        return 'ri-shield-check-line';
-    } else if (action.includes('Retrait')) {
-        return 'ri-shield-cross-line';
-    }
+    if (action.includes('Démarrage')) return 'ri-play-circle-line';
+    if (action.includes('Arrêt')) return 'ri-stop-circle-line';
+    if (action.includes('Promotion')) return 'ri-shield-check-line';
+    if (action.includes('Retrait')) return 'ri-shield-cross-line';
     return 'ri-file-list-3-line';
 }
 
-// Format date du log
-function formatLogDate(dateString) {
-    if (!dateString) return '';
-
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffMins < 1) {
-        return "À l'instant";
-    } else if (diffMins < 60) {
-        return `Il y a ${diffMins} min`;
-    } else if (diffHours < 24) {
-        return `Il y a ${diffHours}h`;
-    } else if (diffDays < 7) {
-        return `Il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
-    } else {
-        return date.toLocaleDateString('fr-FR', {
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
-}
-
-// Init les événements du modal logs
 function initLogsModal() {
     const viewLogsBtn = document.getElementById('view-logs-btn');
     const logsModal = document.getElementById('logsModal');
@@ -1149,86 +918,28 @@ function initLogsModal() {
 
     if (logsModal) {
         logsModal.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal-overlay')) {
-                closeLogsModal();
-            }
+            if (e.target.classList.contains('modal-overlay')) closeLogsModal();
         });
-
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && logsModal.style.display === 'flex') {
-                closeLogsModal();
-            }
+            if (e.key === 'Escape' && logsModal.style.display === 'flex') closeLogsModal();
         });
     }
 }
 
-// Init les événements du modal utilisateurs
-function initUsersModal() {
-    const manageUsersBtn = document.getElementById('manage-users-btn');
-    const searchInput = document.getElementById('users-search-input');
-    const clearBtn = document.getElementById('users-clear-btn');
-    const usersModal = document.getElementById('usersModal');
+// ====== SUPPRESSION DE L'HISTORIQUE ======
 
-    if (manageUsersBtn) {
-        manageUsersBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            openUsersModal();
-        });
-    }
-
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            filterUsers(e.target.value);
-        });
-
-        searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeUsersModal();
-            }
-        });
-    }
-
-    if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
-            if (searchInput) {
-                searchInput.value = '';
-                searchInput.focus();
-            }
-            filterUsers('');
-        });
-    }
-
-    if (usersModal) {
-        usersModal.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal-overlay')) {
-                closeUsersModal();
-            }
-        });
-    }
-}
-
-// Suppression de l'historique
-
-// Ouvrir le modal de confirmation
 function openDeleteHistoryModal() {
     const modal = document.getElementById('confirmDeleteHistoryModal');
-    if (modal) {
-        modal.style.display = 'flex';
-    }
+    if (modal) modal.style.display = 'flex';
 }
 
-// Fermer le modal de confirmation
 function closeDeleteHistoryModal() {
     const modal = document.getElementById('confirmDeleteHistoryModal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
+    if (modal) modal.style.display = 'none';
 }
 
-// Supprimer tout l'histo
 async function deleteAllHistory() {
     const token = sessionStorage.getItem('authToken');
-
     if (!token) {
         showError('Vous devez être connecté pour supprimer votre historique', 3000);
         closeDeleteHistoryModal();
@@ -1244,31 +955,22 @@ async function deleteAllHistory() {
     try {
         const response = await fetch('/api/user/conversations/all', {
             method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
-
         const data = await response.json();
 
         if (response.ok) {
             showSuccess(`${data.deleted} conversation(s) supprimée(s)`, 3000);
             closeDeleteHistoryModal();
 
-            // Recharger la liste des discussions
-            if (typeof loadDiscussions === 'function') {
-                await loadDiscussions();
-            }
+            if (typeof loadDiscussions === 'function') await loadDiscussions();
 
             if (window.location.pathname === '/chat') {
-                setTimeout(() => {
-                    window.location.href = '/begin';
-                }, 1500);
+                setTimeout(() => { window.location.href = '/begin'; }, 1500);
             }
         } else {
             showError(data.error || 'Erreur lors de la suppression', 3000);
         }
-
     } catch (error) {
         console.error('Erreur suppression historique:', error);
         showError('Erreur lors de la suppression de l\'historique', 3000);
@@ -1280,38 +982,27 @@ async function deleteAllHistory() {
     }
 }
 
-// Init les événements du modal de suppression
 function initDeleteHistoryModal() {
     const deleteBtn = document.getElementById('delete-history-btn');
     const cancelBtn = document.getElementById('cancel-delete-history');
     const confirmBtn = document.getElementById('confirm-delete-history');
     const modal = document.getElementById('confirmDeleteHistoryModal');
 
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', openDeleteHistoryModal);
-    }
-
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', closeDeleteHistoryModal);
-    }
-
-    if (confirmBtn) {
-        confirmBtn.addEventListener('click', deleteAllHistory);
-    }
+    if (deleteBtn) deleteBtn.addEventListener('click', openDeleteHistoryModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeDeleteHistoryModal);
+    if (confirmBtn) confirmBtn.addEventListener('click', deleteAllHistory);
 
     if (modal) {
         modal.addEventListener('click', (e) => {
-            if (e.target.classList.contains('confirm-modal-overlay')) {
-                closeDeleteHistoryModal();
-            }
+            if (e.target.classList.contains('confirm-modal-overlay')) closeDeleteHistoryModal();
         });
     }
 }
 
-// Télécharger les données utilisateur
+// ====== EXPORT DES DONNÉES UTILISATEUR ======
+
 async function downloadUserData() {
     const token = sessionStorage.getItem('authToken');
-
     if (!token) {
         showError('Vous devez être connecté pour télécharger vos données', 3000);
         return;
@@ -1320,9 +1011,7 @@ async function downloadUserData() {
     try {
         const response = await fetch('/api/user/export-data', {
             method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
 
         if (!response.ok) {
@@ -1330,13 +1019,10 @@ async function downloadUserData() {
             throw new Error(errorData.error || 'Erreur lors du téléchargement');
         }
 
-        // Récupérer les données JSON
         const data = await response.json();
 
-        // Créer un blob avec les données
+        // Créer un lien temporaire pour déclencher le téléchargement du fichier JSON
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-
-        // Créer un lien de téléchargement
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -1344,40 +1030,124 @@ async function downloadUserData() {
         document.body.appendChild(a);
         a.click();
 
-        // Nettoyer
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
 
         showSuccess('Vos données ont été téléchargées avec succès', 3000);
-
     } catch (error) {
         console.error('Erreur téléchargement données:', error);
         showError(error.message || 'Erreur lors du téléchargement des données', 3000);
     }
 }
 
-// Charger le statut Mistral quand on ouvre la section admin
+// ====== UTILITAIRES ======
+
+// Met en surbrillance un terme recherché dans un texte
+function highlightText(text, searchTerm) {
+    if (!searchTerm) return escapeHtml(text);
+
+    const escaped = escapeHtml(text);
+    const regex = new RegExp(`(${escapeRegex(searchTerm)})`, 'gi');
+    return escaped.replace(regex, '<mark>$1</mark>');
+}
+
+function escapeRegex(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Échapper le HTML pour éviter les injections XSS dans les contenus dynamiques
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Formate une date en texte relatif
+// Le paramètre withTime ajoute l'heure pour les logs qui nécessitent plus de précision
+function formatRelativeDate(dateString, withTime = false) {
+    if (!dateString) return '';
+
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (withTime) {
+        if (diffMins < 1) return "À l'instant";
+        if (diffMins < 60) return `Il y a ${diffMins} min`;
+        if (diffHours < 24) return `Il y a ${diffHours}h`;
+        if (diffDays < 7) return `Il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
+        return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+
+    if (diffDays === 0) return "Aujourd'hui";
+    if (diffDays === 1) return "Hier";
+    if (diffDays < 7) return `Il y a ${diffDays} jours`;
+    return date.toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    });
+}
+
+// ====== INITIALISATION ======
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Bouton déconnexion
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleLogout();
+        });
+    }
+
+    // Bouton paramètres
+    const settingsBtn = document.getElementById('settings-btn');
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openSettingsModal();
+        });
+    }
+
+    // Navigation dans les sections du modal paramètres
+    initSettingsNavigation();
+
+    // Modal modification du nom d'utilisateur
+    const changeUsernameBtn = document.getElementById('change-username-btn');
+    if (changeUsernameBtn) changeUsernameBtn.addEventListener('click', openUsernameModal);
+
+    const usernameConfirmBtn = document.getElementById('username-confirm-btn');
+    if (usernameConfirmBtn) usernameConfirmBtn.addEventListener('click', confirmUsernameChange);
+
+    const usernameModalInput = document.getElementById('username-modal-input');
+    if (usernameModalInput) {
+        usernameModalInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') confirmUsernameChange();
+            if (e.key === 'Escape') closeUsernameModal();
+        });
+    }
+
+    // Bouton téléchargement des données
+    const downloadDataBtn = document.getElementById('download-data-btn');
+    if (downloadDataBtn) downloadDataBtn.addEventListener('click', downloadUserData);
+
+    // Tous les modals et contrôles admin
     initAdminControls();
     initSearchModal();
     initUsersModal();
     initLogsModal();
     initDeleteHistoryModal();
 
-    // Initialiser le bouton de téléchargement des données
-    const downloadDataBtn = document.getElementById('download-data-btn');
-    if (downloadDataBtn) {
-        downloadDataBtn.addEventListener('click', downloadUserData);
-    }
-
-    // Observer les changements de section dans les paramètres
+    // Charger le statut Mistral quand on ouvre la section admin dans les paramètres
     const adminSection = document.getElementById('section-admin');
     if (adminSection) {
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
-                if (mutation.target.classList.contains('active')) {
-                    getMistralStatus();
-                }
+                if (mutation.target.classList.contains('active')) getMistralStatus();
             });
         });
         observer.observe(adminSection, { attributes: true, attributeFilter: ['class'] });
