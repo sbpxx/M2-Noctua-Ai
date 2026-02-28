@@ -817,7 +817,7 @@ io.on('connection', (socket) => {
 
     socket.on('send-message', async (data) => {
         try {
-            const { conversationId, userId, message } = data;
+            const { conversationId, userId, message, alreadySaved } = data;
 
             if (!conversationId || !message) {
                 socket.emit('error', { message: 'Données invalides' });
@@ -843,25 +843,27 @@ io.on('connection', (socket) => {
                     return;
                 }
 
-                // Stocker le message utilisateur en base
-                const userMsgResult = await client.query(
-                    'INSERT INTO messages (conversation_id, sender, content, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id, created_at',
-                    [conversationId, 'user', message]
-                );
-                const userMsg = userMsgResult.rows[0];
+                if (!alreadySaved) {
+                    // Stocker le message utilisateur en base
+                    const userMsgResult = await client.query(
+                        'INSERT INTO messages (conversation_id, sender, content, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id, created_at',
+                        [conversationId, 'user', message]
+                    );
+                    const userMsg = userMsgResult.rows[0];
 
-                await client.query(
-                    'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
-                    [conversationId]
-                );
+                    await client.query(
+                        'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
+                        [conversationId]
+                    );
 
-                // Émettre le message utilisateur à la room
-                io.to(`conversation-${conversationId}`).emit('receive-message', {
-                    sender: 'user',
-                    content: message,
-                    id: userMsg.id,
-                    created_at: userMsg.created_at
-                });
+                    // Émettre le message utilisateur à la room
+                    io.to(`conversation-${conversationId}`).emit('receive-message', {
+                        sender: 'user',
+                        content: message,
+                        id: userMsg.id,
+                        created_at: userMsg.created_at
+                    });
+                }
 
                 // Construire le contexte pour le RAG
                 const historyResult = await client.query(

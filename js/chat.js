@@ -178,7 +178,8 @@ async function loadConversationMessages(conversationId) {
                     conversationId: conversationId,
                     userId: isGuest ? null : email,
                     message: messages[0].content,
-                    isGuest: isGuest
+                    isGuest: isGuest,
+                    alreadySaved: true  // déjà en BDD, ne pas réinsérer
                 });
             }
         } else if (lastMessage?.sender === 'user' && isAlreadyWaiting) {
