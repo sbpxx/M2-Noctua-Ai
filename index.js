@@ -10,6 +10,7 @@ const { Server } = require('socket.io');
 const axios = require('axios');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const path = require('path');
 const { exec } = require('child_process');
 const pool = require('./js/libraryBDD');
@@ -97,6 +98,29 @@ function optionalAuthenticateToken(req, res, next) {
         req.user = err ? null : user;
         next();
     });
+}
+
+// Vérifie le header X-API-Key et attache req.apiKey si valide
+async function authenticateApiKey(req, res, next) {
+    const key = req.headers['x-api-key'];
+    if (!key) return res.status(401).json({ error: 'Clé API manquante' });
+
+    let client;
+    try {
+        client = await pool.connect();
+        const result = await client.query(
+            'SELECT * FROM api_keys WHERE key = $1',
+            [key]
+        );
+        if (result.rows.length === 0) return res.status(401).json({ error: 'Clé API invalide' });
+        req.apiKey = result.rows[0];
+        next();
+    } catch (err) {
+        console.error('Erreur vérification clé API:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
+    }
 }
 
 // Vérifie que l'utilisateur connecté est admin
@@ -796,6 +820,288 @@ app.get('/api/admin/logs', authenticateToken, isAdmin, async (req, res) => {
     } catch (error) {
         console.error('Erreur récupération logs:', error);
         res.status(500).json({ error: 'Erreur lors de la récupération des logs' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// ====== ROUTES — CLÉS API ======
+
+// Liste les clés API de l'utilisateur connecté
+app.get('/api/keys', authenticateToken, async (req, res) => {
+    let client;
+    try {
+        client = await pool.connect();
+        const result = await client.query(
+            'SELECT id, name, created_at FROM api_keys WHERE user_id = $1 ORDER BY created_at DESC',
+            [req.user.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Erreur liste clés API:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// Génère une nouvelle clé API pour l'utilisateur connecté
+app.post('/api/keys', authenticateToken, async (req, res) => {
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Nom de clé requis' });
+
+    const MAX_KEYS = 5;
+    const key = 'nai_' + crypto.randomBytes(24).toString('hex');
+    let client;
+    try {
+        client = await pool.connect();
+        const countResult = await client.query(
+            'SELECT COUNT(*) FROM api_keys WHERE user_id = $1',
+            [req.user.id]
+        );
+        if (parseInt(countResult.rows[0].count) >= MAX_KEYS) {
+            return res.status(400).json({ error: `Limite atteinte (${MAX_KEYS} clés maximum)` });
+        }
+        const result = await client.query(
+            'INSERT INTO api_keys (user_id, key, name) VALUES ($1, $2, $3) RETURNING id, name, created_at',
+            [req.user.id, key, name.trim()]
+        );
+        // Retourne la clé en clair une seule fois à la création
+        res.status(201).json({ ...result.rows[0], key });
+    } catch (err) {
+        console.error('Erreur création clé API:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// Supprime une clé API (vérifie l'ownership)
+app.delete('/api/keys/:keyId', authenticateToken, async (req, res) => {
+    let client;
+    try {
+        client = await pool.connect();
+        const result = await client.query(
+            'DELETE FROM api_keys WHERE id = $1 AND user_id = $2 RETURNING id',
+            [req.params.keyId, req.user.id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Clé non trouvée' });
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Erreur suppression clé API:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// ====== ROUTE — API PUBLIQUE ======
+
+// Endpoint REST public pour envoyer un message au LLM via clé API
+app.post('/api/v1/chat', authenticateApiKey, async (req, res) => {
+    const { message, conversation_id } = req.body;
+    if (!message || !message.trim()) return res.status(400).json({ error: 'Message requis' });
+
+    let client;
+    try {
+        client = await pool.connect();
+        let convId = conversation_id;
+
+        const apiUserId = req.apiKey.user_id;
+
+        if (convId) {
+            // Vérifier que la conversation existe et appartient à cet utilisateur
+            const convCheck = await client.query(
+                'SELECT id FROM conversations WHERE id = $1 AND user_id = $2',
+                [convId, apiUserId]
+            );
+            if (convCheck.rows.length === 0) {
+                return res.status(404).json({ error: 'Conversation non trouvée' });
+            }
+        } else {
+            // Créer une nouvelle conversation liée à l'utilisateur propriétaire de la clé
+            const convResult = await client.query(
+                'INSERT INTO conversations (user_id, title, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING id',
+                [apiUserId, generateTitle(message)]
+            );
+            convId = convResult.rows[0].id;
+        }
+
+        // Insérer le message utilisateur
+        await client.query(
+            'INSERT INTO messages (conversation_id, sender, content, created_at) VALUES ($1, $2, $3, NOW())',
+            [convId, 'user', message]
+        );
+        await client.query('UPDATE conversations SET updated_at = NOW() WHERE id = $1', [convId]);
+
+        // Construire le contexte (max 20 derniers messages)
+        const historyResult = await client.query(
+            'SELECT sender, content FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+            [convId]
+        );
+        let messages = historyResult.rows.map(row => ({
+            role: row.sender === 'user' ? 'user' : 'assistant',
+            content: row.content
+        }));
+        if (messages.length > 20) messages = messages.slice(-20);
+
+        // Appeler le RAG
+        let aiMessage;
+        let aiSources = [];
+        try {
+            const ragResponse = await axios.post(RAG_API_URL, {
+                model: RAG_MODEL,
+                messages,
+                stream: false
+            }, { timeout: 120000 });
+
+            aiMessage = ragResponse.data.message.content;
+            aiSources = ragResponse.data.sources || [];
+
+            aiMessage = aiMessage.replace(/^[ \t]*[-*]?\s*\*{0,2}\[?(?:Sources?\s*)?\d+\]?\*{0,2}\s*:.*$/gm, '');
+            aiMessage = aiMessage.replace(/^[ \t]*\*{0,2}Sources?\s*:?\s*\*{0,2}$/gim, '');
+            aiMessage = aiMessage.replace(/^.*(?:consulter|voir|référer|retrouver)\s+(?:les\s+)?sources?\s+(?:fournies?|ci-dessus|ci-dessous|mentionnées?|suivantes?).*$/gim, '');
+            aiMessage = aiMessage.replace(/\n{3,}/g, '\n\n').trim();
+        } catch (ragError) {
+            console.error('[RAG] Erreur API (v1/chat):', ragError.message);
+            aiMessage = "Désolé, le service IA est temporairement indisponible. Veuillez réessayer dans quelques instants.";
+            aiSources = [];
+        }
+
+        // Stocker la réponse bot
+        await client.query(
+            'INSERT INTO messages (conversation_id, sender, content, sources, created_at) VALUES ($1, $2, $3, $4, NOW())',
+            [convId, 'bot', aiMessage, JSON.stringify(aiSources)]
+        );
+        await client.query('UPDATE conversations SET updated_at = NOW() WHERE id = $1', [convId]);
+
+        res.json({
+            conversation_id: convId,
+            response: { content: aiMessage, sources: aiSources }
+        });
+    } catch (err) {
+        console.error('Erreur API v1/chat:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// Liste les conversations de l'utilisateur propriétaire de la clé
+app.get('/api/v1/conversations', authenticateApiKey, async (req, res) => {
+    let client;
+    try {
+        client = await pool.connect();
+        const result = await client.query(
+            'SELECT id, title, created_at, updated_at FROM conversations WHERE user_id = $1 ORDER BY updated_at DESC',
+            [req.apiKey.user_id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Erreur API v1/conversations:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// Récupère tous les messages d'une conversation (doit appartenir à l'utilisateur)
+app.get('/api/v1/conversations/:id/messages', authenticateApiKey, async (req, res) => {
+    let client;
+    try {
+        client = await pool.connect();
+        const convCheck = await client.query(
+            'SELECT id FROM conversations WHERE id = $1 AND user_id = $2',
+            [req.params.id, req.apiKey.user_id]
+        );
+        if (convCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Conversation non trouvée' });
+        }
+        const result = await client.query(
+            'SELECT id, sender, content, sources, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+            [req.params.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Erreur API v1/conversations/messages:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// Envoie un message dans une conversation existante et retourne la réponse du LLM
+app.post('/api/v1/conversations/:id/messages', authenticateApiKey, async (req, res) => {
+    const { message } = req.body;
+    if (!message || !message.trim()) return res.status(400).json({ error: 'Message requis' });
+
+    let client;
+    try {
+        client = await pool.connect();
+
+        // Vérifier que la conversation existe et appartient à l'utilisateur
+        const convCheck = await client.query(
+            'SELECT id FROM conversations WHERE id = $1 AND user_id = $2',
+            [req.params.id, req.apiKey.user_id]
+        );
+        if (convCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Conversation non trouvée' });
+        }
+
+        // Insérer le message utilisateur
+        await client.query(
+            'INSERT INTO messages (conversation_id, sender, content, created_at) VALUES ($1, $2, $3, NOW())',
+            [req.params.id, 'user', message]
+        );
+        await client.query('UPDATE conversations SET updated_at = NOW() WHERE id = $1', [req.params.id]);
+
+        // Construire le contexte (max 20 derniers messages)
+        const historyResult = await client.query(
+            'SELECT sender, content FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+            [req.params.id]
+        );
+        let messages = historyResult.rows.map(row => ({
+            role: row.sender === 'user' ? 'user' : 'assistant',
+            content: row.content
+        }));
+        if (messages.length > 20) messages = messages.slice(-20);
+
+        // Appeler le RAG
+        let aiMessage;
+        let aiSources = [];
+        try {
+            const ragResponse = await axios.post(RAG_API_URL, {
+                model: RAG_MODEL,
+                messages,
+                stream: false
+            }, { timeout: 120000 });
+
+            aiMessage = ragResponse.data.message.content;
+            aiSources = ragResponse.data.sources || [];
+
+            aiMessage = aiMessage.replace(/^[ \t]*[-*]?\s*\*{0,2}\[?(?:Sources?\s*)?\d+\]?\*{0,2}\s*:.*$/gm, '');
+            aiMessage = aiMessage.replace(/^[ \t]*\*{0,2}Sources?\s*:?\s*\*{0,2}$/gim, '');
+            aiMessage = aiMessage.replace(/^.*(?:consulter|voir|référer|retrouver)\s+(?:les\s+)?sources?\s+(?:fournies?|ci-dessus|ci-dessous|mentionnées?|suivantes?).*$/gim, '');
+            aiMessage = aiMessage.replace(/\n{3,}/g, '\n\n').trim();
+        } catch (ragError) {
+            console.error('[RAG] Erreur API (v1/conversations/messages):', ragError.message);
+            aiMessage = "Désolé, le service IA est temporairement indisponible. Veuillez réessayer dans quelques instants.";
+            aiSources = [];
+        }
+
+        // Stocker la réponse bot
+        const botMsgResult = await client.query(
+            'INSERT INTO messages (conversation_id, sender, content, sources, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id, created_at',
+            [req.params.id, 'bot', aiMessage, JSON.stringify(aiSources)]
+        );
+        await client.query('UPDATE conversations SET updated_at = NOW() WHERE id = $1', [req.params.id]);
+
+        res.json({
+            message: { id: botMsgResult.rows[0].id, sender: 'bot', content: aiMessage, sources: aiSources, created_at: botMsgResult.rows[0].created_at }
+        });
+    } catch (err) {
+        console.error('Erreur API v1/conversations/messages POST:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
     } finally {
         if (client) client.release();
     }
