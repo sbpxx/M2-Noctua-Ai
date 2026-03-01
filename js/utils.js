@@ -73,9 +73,13 @@ function updateUserButton(isConnected, userName) {
 
     if (!userBtn || !userText || !userIcon) return;
 
+    const apiSidebarBtn = document.getElementById('api-sidebar-btn');
+
     if (isConnected && userName) {
         userText.textContent = userName;
         userIcon.className = 'ri-user-smile-fill';
+
+        if (apiSidebarBtn) apiSidebarBtn.style.display = '';
 
         // Afficher le menu déroulant au clic
         userBtn.onclick = (e) => {
@@ -85,6 +89,8 @@ function updateUserButton(isConnected, userName) {
     } else {
         userText.textContent = 'Connectez-vous';
         userIcon.className = 'ri-user-line';
+
+        if (apiSidebarBtn) apiSidebarBtn.style.display = 'none';
 
         userBtn.onclick = () => {
             const loginModal = document.getElementById('loginModal');
@@ -1040,6 +1046,185 @@ async function downloadUserData() {
     }
 }
 
+// ====== MODAL API ======
+
+function showApiModal() {
+    const modal = document.getElementById('apiModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        loadApiKeys();
+    }
+}
+
+function closeApiModal() {
+    const modal = document.getElementById('apiModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function switchApiTab(tabName) {
+    document.querySelectorAll('.api-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.api-tab-panel').forEach(panel => panel.classList.remove('active'));
+
+    const activeBtn = document.querySelector(`.api-tab-btn[data-tab="${tabName}"]`);
+    const activePanel = document.getElementById(`api-tab-${tabName}`);
+    if (activeBtn) activeBtn.classList.add('active');
+    if (activePanel) activePanel.classList.add('active');
+}
+
+async function loadApiKeys() {
+    const token = sessionStorage.getItem('authToken');
+    if (!token) return;
+
+    const container = document.getElementById('api-keys-list');
+    if (container) container.innerHTML = '<p class="api-keys-empty">Chargement...</p>';
+
+    try {
+        const res = await fetch('/api/keys', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error();
+        const keys = await res.json();
+        renderApiKeys(keys);
+    } catch {
+        if (container) container.innerHTML = '<p class="api-keys-empty">Erreur lors du chargement des clés</p>';
+    }
+}
+
+function renderApiKeys(keys) {
+    const container = document.getElementById('api-keys-list');
+    if (!container) return;
+
+    const MAX_KEYS = 5;
+    const counter = document.getElementById('api-keys-counter');
+    if (counter) {
+        counter.textContent = `${keys.length} / ${MAX_KEYS}`;
+        counter.classList.toggle('api-keys-counter-full', keys.length >= MAX_KEYS);
+    }
+
+    const generateBtn = document.getElementById('api-generate-btn');
+    if (generateBtn) generateBtn.disabled = keys.length >= MAX_KEYS;
+
+    if (keys.length === 0) {
+        container.innerHTML = '<p class="api-keys-empty"><i class="ri-key-line"></i> Aucune clé API. Créez-en une ci-dessus.</p>';
+        return;
+    }
+
+    container.innerHTML = keys.map(k => `
+        <div class="api-key-item" data-key-id="${k.id}">
+            <div class="api-key-info">
+                <span class="api-key-name">${escapeHtml(k.name)}</span>
+                <span class="api-key-value">nai_••••••••••••••••••••••••••••••••••••••••••••••••</span>
+                <span class="api-key-date"><i class="ri-calendar-line"></i> ${formatRelativeDate(k.created_at)}</span>
+            </div>
+            <div class="api-key-actions">
+                <button class="api-key-btn delete" onclick="deleteApiKey(${k.id})" title="Supprimer">
+                    <i class="ri-delete-bin-line"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function generateApiKey() {
+    const token = sessionStorage.getItem('authToken');
+    if (!token) return;
+
+    const nameInput = document.getElementById('api-key-name-input');
+    const name = nameInput ? nameInput.value.trim() : '';
+    if (!name) { showError('Veuillez saisir un nom pour la clé', 3000); return; }
+
+    const btn = document.getElementById('api-generate-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ri-loader-4-line"></i> Génération...'; }
+
+    try {
+        const res = await fetch('/api/keys', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+
+        if (nameInput) nameInput.value = '';
+
+        // Afficher la clé une seule fois
+        const newKeyBanner = document.getElementById('api-new-key-banner');
+        const newKeyValue = document.getElementById('api-new-key-value');
+        if (newKeyBanner && newKeyValue) {
+            newKeyValue.textContent = data.key;
+            newKeyBanner.style.display = 'flex';
+        }
+
+        await loadApiKeys();
+        showSuccess('Clé API générée avec succès', 3000);
+    } catch {
+        showError('Erreur lors de la génération de la clé', 3000);
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ri-add-line"></i> Générer'; }
+    }
+}
+
+async function deleteApiKey(id) {
+    const token = sessionStorage.getItem('authToken');
+    if (!token) return;
+
+    try {
+        const res = await fetch(`/api/keys/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error();
+        await loadApiKeys();
+        showSuccess('Clé API supprimée', 2000);
+    } catch {
+        showError('Erreur lors de la suppression', 3000);
+    }
+}
+
+function copyApiKey(text) {
+    if (!text) {
+        const el = document.getElementById('api-new-key-value');
+        text = el ? el.textContent : '';
+    }
+    if (!text) return;
+
+    navigator.clipboard.writeText(text).then(() => {
+        showSuccess('Clé copiée dans le presse-papiers', 2000);
+    }).catch(() => {
+        showError('Impossible de copier la clé', 2000);
+    });
+}
+
+function initApiModal() {
+    const apiBtn = document.getElementById('api-btn');
+    const apiModal = document.getElementById('apiModal');
+
+    if (apiBtn) {
+        apiBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showApiModal();
+        });
+    }
+
+    if (apiModal) {
+        apiModal.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) closeApiModal();
+        });
+    }
+
+    document.querySelectorAll('.api-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchApiTab(btn.dataset.tab));
+    });
+
+    const generateBtn = document.getElementById('api-generate-btn');
+    if (generateBtn) generateBtn.addEventListener('click', generateApiKey);
+
+    const nameInput = document.getElementById('api-key-name-input');
+    if (nameInput) {
+        nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') generateApiKey(); });
+    }
+}
+
 // ====== UTILITAIRES ======
 
 // Met en surbrillance un terme recherché dans un texte
@@ -1141,6 +1326,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initUsersModal();
     initLogsModal();
     initDeleteHistoryModal();
+    initApiModal();
 
     // Charger le statut Mistral quand on ouvre la section admin dans les paramètres
     const adminSection = document.getElementById('section-admin');
