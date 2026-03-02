@@ -1,0 +1,159 @@
+<div class="modal-api" id="apiModal" style="display: none;">
+    <div class="modal-overlay"></div>
+    <div class="api-modal-content">
+        <button class="modal-close" onclick="closeApiModal()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+
+        <div class="api-modal-header">
+            <div class="api-modal-icon">
+                <i class="ri-webhook-line"></i>
+            </div>
+            <div>
+                <h2>API REST</h2>
+                <p>Intégrez Noctua dans vos applications</p>
+            </div>
+        </div>
+
+        <!-- Onglets -->
+        <div class="api-tabs">
+            <button class="api-tab-btn active" data-tab="keys">
+                <i class="ri-key-line"></i>
+                <span>Mes clés</span>
+            </button>
+            <button class="api-tab-btn" data-tab="docs">
+                <i class="ri-book-open-line"></i>
+                <span>Documentation</span>
+            </button>
+        </div>
+
+        <!-- Onglet Mes clés -->
+        <div class="api-tab-panel active" id="api-tab-keys">
+            <!-- Formulaire génération -->
+            <div class="api-generate-form">
+                <label class="api-label">Nom de la clé</label>
+                <div class="api-generate-row">
+                    <input type="text" id="api-key-name-input" class="api-input" placeholder="ex : Mon application, Script Python..." autocomplete="off" />
+                    <button class="api-btn-generate" id="api-generate-btn">
+                        <i class="ri-add-line"></i>
+                        <span>Générer</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bannière clé nouvellement créée -->
+            <div class="api-new-key-banner" id="api-new-key-banner" style="display: none;">
+                <div class="api-new-key-info">
+                    <i class="ri-alert-line"></i>
+                    <span>Copiez cette clé maintenant, elle ne sera plus affichée.</span>
+                </div>
+                <div class="api-new-key-row">
+                    <code id="api-new-key-value" class="api-new-key-value"></code>
+                    <button class="api-key-btn copy" onclick="copyApiKey()" title="Copier">
+                        <i class="ri-clipboard-line"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Liste des clés -->
+            <div class="api-keys-section">
+                <div class="api-keys-section-header">
+                    <label class="api-label">Clés existantes</label>
+                    <span class="api-keys-counter" id="api-keys-counter">0 / 5</span>
+                </div>
+                <div id="api-keys-list">
+                    <p class="api-keys-empty"><i class="ri-key-line"></i> Aucune clé API. Créez-en une ci-dessus.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Onglet Documentation -->
+        <div class="api-tab-panel" id="api-tab-docs">
+
+            <div class="api-doc-section">
+                <h3 class="api-doc-title">Authentification</h3>
+                <p class="api-doc-desc">Tous les endpoints nécessitent le header <code class="api-inline-code">X-API-Key: nai_votre_cle</code>.</p>
+            </div>
+
+            <div class="api-doc-section">
+                <h3 class="api-doc-title">Envoyer un message</h3>
+                <div class="api-endpoint-badge">
+                    <span class="api-method">POST</span>
+                    <code>/api/v1/chat</code>
+                </div>
+                <p class="api-doc-desc">Envoie un message au LLM. Crée une nouvelle conversation si <code class="api-inline-code">conversation_id</code> est absent.</p>
+                <table class="api-params-table">
+                    <thead><tr><th>Paramètre</th><th>Type</th><th>Requis</th><th>Description</th></tr></thead>
+                    <tbody>
+                        <tr>
+                            <td><code class="api-inline-code">message</code></td>
+                            <td>string</td>
+                            <td><span class="api-required">Oui</span></td>
+                            <td>Le message à envoyer</td>
+                        </tr>
+                        <tr>
+                            <td><code class="api-inline-code">conversation_id</code></td>
+                            <td>number</td>
+                            <td><span class="api-optional">Non</span></td>
+                            <td>Pour continuer une conversation existante</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <pre class="api-code-block"><code>curl -X POST http://localhost:8080/api/v1/chat -H "X-API-Key: nai_..." -H "Content-Type: application/json" -d '{"message": "Bonjour"}'</code></pre>
+                <pre class="api-code-block"><code>{
+  "conversation_id": 42,
+  "response": { "content": "Bonjour ! ...", "sources": [] }
+}</code></pre>
+            </div>
+
+            <div class="api-doc-section">
+                <h3 class="api-doc-title">Lister les conversations</h3>
+                <div class="api-endpoint-badge">
+                    <span class="api-method get">GET</span>
+                    <code>/api/v1/conversations</code>
+                </div>
+                <p class="api-doc-desc">Retourne toutes vos conversations, triées par date de mise à jour.</p>
+                <pre class="api-code-block"><code>curl http://localhost:8080/api/v1/conversations -H "X-API-Key: nai_..."</code></pre>
+                <pre class="api-code-block"><code>[
+  { "id": 42, "title": "Inscription université", "created_at": "...", "updated_at": "..." }
+]</code></pre>
+            </div>
+
+            <div class="api-doc-section">
+                <h3 class="api-doc-title">Récupérer les messages</h3>
+                <div class="api-endpoint-badge">
+                    <span class="api-method get">GET</span>
+                    <code>/api/v1/conversations/:id/messages</code>
+                </div>
+                <p class="api-doc-desc">Retourne tous les messages d'une conversation dans l'ordre chronologique.</p>
+                <pre class="api-code-block"><code>curl http://localhost:8080/api/v1/conversations/42/messages -H "X-API-Key: nai_..."</code></pre>
+                <pre class="api-code-block"><code>[
+  { "id": 1, "sender": "user", "content": "Bonjour", "sources": null, "created_at": "..." },
+  { "id": 2, "sender": "bot",  "content": "Bonjour ! ...", "sources": [], "created_at": "..." }
+]</code></pre>
+            </div>
+
+            <div class="api-doc-section">
+                <h3 class="api-doc-title">Envoyer un message dans une conversation</h3>
+                <div class="api-endpoint-badge">
+                    <span class="api-method">POST</span>
+                    <code>/api/v1/conversations/:id/messages</code>
+                </div>
+                <p class="api-doc-desc">Envoie un message dans une conversation existante et retourne la réponse du LLM.</p>
+                <pre class="api-code-block"><code>curl -X POST http://localhost:8080/api/v1/conversations/42/messages -H "X-API-Key: nai_..." -H "Content-Type: application/json" -d '{"message": "Et les délais ?"}'</code></pre>
+                <pre class="api-code-block"><code>{
+  "message": {
+    "id": 3,
+    "sender": "bot",
+    "content": "Les délais d'inscription sont...",
+    "sources": [],
+    "created_at": "..."
+  }
+}</code></pre>
+            </div>
+
+        </div>
+    </div>
+</div>
