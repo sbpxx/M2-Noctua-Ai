@@ -13,7 +13,7 @@ else
 fi
 
 # Vérifier si Mistral est déjà en cours d'exécution
-STATUS=$(sshpass -p "$ECO_PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 $ECO_USER@$ECO_HOST "pgrep -f 'api_mistral\.py' > /dev/null 2>&1 && echo 'running' || echo 'stopped'" 2>/dev/null)
+STATUS=$(sshpass -p "$ECO_PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 $ECO_USER@$ECO_HOST "pgrep -u \$USER -f 'python.*api_mistral\.py' > /dev/null 2>&1 && echo 'running' || echo 'stopped'" 2>/dev/null)
 
 if [ "$STATUS" = "running" ]; then
     echo '{"success": false, "message": "Mistral est déjà en cours d'\''exécution", "status": "running"}'
@@ -27,7 +27,7 @@ sshpass -p "$ECO_PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 $ECO
 sleep 8
 
 # Vérifier si le processus existe
-STATUS=$(sshpass -p "$ECO_PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 $ECO_USER@$ECO_HOST "pgrep -f 'api_mistral\.py' > /dev/null 2>&1 && echo 'running' || echo 'stopped'" 2>/dev/null)
+STATUS=$(sshpass -p "$ECO_PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 $ECO_USER@$ECO_HOST "pgrep -u \$USER -f 'python.*api_mistral\.py' > /dev/null 2>&1 && echo 'running' || echo 'stopped'" 2>/dev/null)
 
 if [ "$STATUS" = "running" ]; then
     echo '{"success": true, "message": "Mistral démarré avec succès", "status": "running"}'

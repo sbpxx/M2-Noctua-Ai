@@ -13,7 +13,7 @@ else
 fi
 
 # Vérifier si Mistral est en cours d'exécution
-STATUS=$(sshpass -p "$ECO_PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 $ECO_USER@$ECO_HOST "pgrep -f 'api_mistral\.py' > /dev/null 2>&1 && echo 'running' || echo 'stopped'" 2>/dev/null)
+STATUS=$(sshpass -p "$ECO_PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 $ECO_USER@$ECO_HOST "pgrep -u \$USER -f 'python.*api_mistral\.py' > /dev/null 2>&1 && echo 'running' || echo 'stopped'" 2>/dev/null)
 
 if [ -z "$STATUS" ]; then
     echo '{"success": false, "message": "Impossible de se connecter au serveur", "status": "unknown"}'
