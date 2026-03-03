@@ -101,7 +101,7 @@
                         </tr>
                     </tbody>
                 </table>
-                <pre class="api-code-block"><code>curl -X POST http://localhost:8080/api/v1/chat -H "X-API-Key: nai_..." -H "Content-Type: application/json" -d '{"message": "Bonjour"}'</code></pre>
+                <pre class="api-code-block"><code>curl -X POST <span class="api-base-url"></span>/api/v1/chat -H "X-API-Key: nai_..." -H "Content-Type: application/json" -d '{"message": "Bonjour"}'</code></pre>
                 <pre class="api-code-block"><code>{
   "conversation_id": 42,
   "response": { "content": "Bonjour ! ...", "sources": [] }
@@ -115,7 +115,7 @@
                     <code>/api/v1/conversations</code>
                 </div>
                 <p class="api-doc-desc">Retourne toutes vos conversations, triées par date de mise à jour.</p>
-                <pre class="api-code-block"><code>curl http://localhost:8080/api/v1/conversations -H "X-API-Key: nai_..."</code></pre>
+                <pre class="api-code-block"><code>curl <span class="api-base-url"></span>/api/v1/conversations -H "X-API-Key: nai_..."</code></pre>
                 <pre class="api-code-block"><code>[
   { "id": 42, "title": "Inscription université", "created_at": "...", "updated_at": "..." }
 ]</code></pre>
@@ -128,7 +128,7 @@
                     <code>/api/v1/conversations/:id/messages</code>
                 </div>
                 <p class="api-doc-desc">Retourne tous les messages d'une conversation dans l'ordre chronologique.</p>
-                <pre class="api-code-block"><code>curl http://localhost:8080/api/v1/conversations/42/messages -H "X-API-Key: nai_..."</code></pre>
+                <pre class="api-code-block"><code>curl <span class="api-base-url"></span>/api/v1/conversations/42/messages -H "X-API-Key: nai_..."</code></pre>
                 <pre class="api-code-block"><code>[
   { "id": 1, "sender": "user", "content": "Bonjour", "sources": null, "created_at": "..." },
   { "id": 2, "sender": "bot",  "content": "Bonjour ! ...", "sources": [], "created_at": "..." }
@@ -142,7 +142,7 @@
                     <code>/api/v1/conversations/:id/messages</code>
                 </div>
                 <p class="api-doc-desc">Envoie un message dans une conversation existante et retourne la réponse du LLM.</p>
-                <pre class="api-code-block"><code>curl -X POST http://localhost:8080/api/v1/conversations/42/messages -H "X-API-Key: nai_..." -H "Content-Type: application/json" -d '{"message": "Et les délais ?"}'</code></pre>
+                <pre class="api-code-block"><code>curl -X POST <span class="api-base-url"></span>/api/v1/conversations/42/messages -H "X-API-Key: nai_..." -H "Content-Type: application/json" -d '{"message": "Et les délais ?"}'</code></pre>
                 <pre class="api-code-block"><code>{
   "message": {
     "id": 3,

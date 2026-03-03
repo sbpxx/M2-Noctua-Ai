@@ -1052,6 +1052,9 @@ function showApiModal() {
     const modal = document.getElementById('apiModal');
     if (modal) {
         modal.style.display = 'flex';
+        // Injecter l'URL réelle du serveur dans les exemples de la doc
+        const baseUrl = window.location.origin;
+        modal.querySelectorAll('.api-base-url').forEach(el => el.textContent = baseUrl);
         loadApiKeys();
     }
 }
